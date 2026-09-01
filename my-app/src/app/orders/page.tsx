@@ -565,7 +565,7 @@ export default function OrdersPage() {
                             <span>
                               Delivery Location:{" "}
                               <b className="text-[#251611]">
-                                {order.deliveryAddress.location ||
+                                {order.deliveryAddress.city ||
                                   order.deliveryAddress.street ||
                                   "Standard Delivery"}
                               </b>
