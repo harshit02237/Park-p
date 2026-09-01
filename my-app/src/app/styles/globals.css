@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+:root {
+  --zaika-ink: #251611;
+  --zaika-muted: #765f55;
+  --zaika-saffron: #f4a51c;
+  --zaika-tomato: #d9472b;
+  --zaika-leaf: #15803d;
+  --zaika-cream: #fff8ed;
+  --zaika-card: #fffdf8;
+  --zaika-line: #efd9bd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--zaika-ink);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(244, 165, 28, 0.14), transparent 28rem),
+    radial-gradient(circle at 92% 6%, rgba(217, 71, 43, 0.12), transparent 24rem),
+    linear-gradient(180deg, #fffaf1 0%, #fffdf8 42%, #f9f2e7 100%);
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  outline-color: var(--zaika-tomato);
+}
+
+.zaika-card {
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid rgba(239, 217, 189, 0.9);
+  box-shadow: 0 18px 45px rgba(71, 37, 20, 0.08);
+}
+
+.zaika-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #e6ceb0;
+  background: #fffdf8;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: var(--zaika-ink);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+/* Eliminate icon & text overlapping */
+.zaika-input.pl-9,
+.zaika-input.pl-10,
+.zaika-input-icon,
+.relative > .zaika-input[class*="pl-"] {
+  padding-left: 2.75rem !important;
+}
+
+.zaika-input::placeholder {
+  color: #a89487;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.zaika-input:focus {
+  border-color: var(--zaika-tomato);
+  box-shadow: 0 0 0 3px rgba(217, 71, 43, 0.14);
+}
+
+
+.zaika-button {
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--zaika-tomato), #b73521);
+  color: white;
+  font-weight: 700;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+  box-shadow: 0 12px 28px rgba(217, 71, 43, 0.24);
+}
+
+.zaika-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(217, 71, 43, 0.28);
+}
+
+.zaika-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+.zaika-navigation-loader {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(37, 22, 17, 0.14);
+  backdrop-filter: blur(2px);
+}
+
+.zaika-navigation-loader-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--zaika-line);
+  border-radius: 999px;
+  background: var(--zaika-card);
+  width: 3.5rem;
+  height: 3.5rem;
+  box-shadow: 0 16px 40px rgba(37, 22, 17, 0.2);
+}
+
+.zaika-navigation-spinner {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 3px solid #f0d2af;
+  border-top-color: var(--zaika-tomato);
+  border-radius: 50%;
+  animation: zaika-spin .65s linear infinite;
+}
+
+@keyframes zaika-spin { to { transform: rotate(360deg); } }
+
+.zaika-loader-page {
+  display: grid;
+  min-height: calc(100vh - 73px);
+  place-items: center;
+  padding: 2rem;
+}
+
+.zaika-loader-card {
+  position: relative;
+  width: min(100%, 23rem);
+  overflow: hidden;
+  border: 1px solid var(--zaika-line);
+  border-radius: 1.75rem;
+  background: rgba(255, 253, 248, 0.94);
+  padding: 2.75rem 2rem 2rem;
+  text-align: center;
+  box-shadow: 0 22px 55px rgba(71, 37, 20, 0.12);
+}
+
+.zaika-loader-card::before {
+  position: absolute;
+  top: -5rem;
+  left: 50%;
+  width: 15rem;
+  height: 10rem;
+  border-radius: 50%;
+  background: rgba(244, 165, 28, 0.16);
+  content: "";
+  filter: blur(22px);
+  transform: translateX(-50%);
+}
+
+.zaika-loader-plate {
+  position: relative;
+  display: grid;
+  width: 5.6rem;
+  height: 5.6rem;
+  margin: 0 auto 1.25rem;
+  place-items: center;
+  border: 7px solid #fff1d5;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #d9472b, #a8291b);
+  color: #f8cd72;
+  font-size: 1.65rem;
+  box-shadow: 0 12px 22px rgba(217, 71, 43, 0.22);
+  animation: zaika-plate 1.35s ease-in-out infinite;
+}
+
+.zaika-loader-steam { display: flex; height: 1.8rem; justify-content: center; gap: .42rem; }
+.zaika-loader-steam i { display: block; width: .35rem; height: 1.25rem; border-radius: 99px; background: #f4a51c; opacity: .55; animation: zaika-steam 1.2s ease-in-out infinite; }
+.zaika-loader-steam i:nth-child(2) { animation-delay: .18s; }
+.zaika-loader-steam i:nth-child(3) { animation-delay: .36s; }
+.zaika-loader-kicker { position: relative; margin: .65rem 0 0; color: var(--zaika-tomato); font-size: .7rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+.zaika-loader-title { position: relative; margin: .5rem 0 1.4rem; color: var(--zaika-ink); font-size: 1.15rem; font-weight: 900; }
+.zaika-loader-line { height: .3rem; overflow: hidden; border-radius: 999px; background: #f3e4ce; }
+.zaika-loader-line span { display: block; width: 45%; height: 100%; border-radius: inherit; background: var(--zaika-tomato); animation: zaika-progress 1.2s ease-in-out infinite; }
+@keyframes zaika-plate { 50% { transform: translateY(-4px) rotate(3deg); } }
+@keyframes zaika-steam { 50% { transform: translateY(-.55rem) scaleY(.7); opacity: .15; } }
+@keyframes zaika-progress { from { transform: translateX(-120%); } to { transform: translateX(280%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .zaika-navigation-spinner, .zaika-loader-plate, .zaika-loader-steam i, .zaika-loader-line span { animation: none; }
+}
