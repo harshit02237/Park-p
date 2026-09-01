@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -10,17 +10,12 @@ import {
   ChevronDown,
   Clock3,
   CookingPot,
-  CreditCard,
   MapPin,
-  PackageCheck,
   PartyPopper,
   Phone,
-  QrCode,
   Radio,
-
   ReceiptText,
   ShoppingBag,
-  Sparkles,
   Truck,
   Volume2,
   VolumeX,
@@ -44,13 +39,22 @@ interface PaymentDetails {
   transactionId?: string;
 }
 
+interface DeliveryAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+}
+
 interface Order {
   _id: string;
   restaurantId?: { _id: string; name: string; logoUrl?: string };
   items: OrderItem[];
   totalAmount: number;
   status: string;
-  deliveryAddress?: { street?: string; city?: string; state?: string; zip?: string };
+  deliveryAddress?: DeliveryAddress;
+  customerInfo?: { phone?: string; name?: string };
   paymentDetails?: PaymentDetails;
   createdAt: string;
 }
@@ -135,17 +139,23 @@ export default function OrdersPage() {
 
   // Real-time live notification states
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const soundEnabledRef = useRef(soundEnabled);
   const [liveToast, setLiveToast] = useState<LiveNotification | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Play pleasant notification sound via Web Audio API
-  const playStatusChime = () => {
-    if (!soundEnabled) return;
+  // Keep sound ref synced without re-triggering socket connections
+  useEffect(() => {
+    soundEnabledRef.current = soundEnabled;
+  }, [soundEnabled]);
+
+  // Web Audio API chime
+  const playStatusChime = useCallback(() => {
+    if (!soundEnabledRef.current) return;
     try {
       if (!audioContextRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
         if (AudioCtx) audioContextRef.current = new AudioCtx();
       }
       const ctx = audioContextRef.current;
@@ -157,7 +167,6 @@ export default function OrdersPage() {
       const gain = ctx.createGain();
 
       osc.type = "sine";
-      // Melody: C5 (523Hz) -> E5 (659Hz) -> G5 (784Hz)
       osc.frequency.setValueAtTime(523.25, now);
       osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1);
       osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2);
@@ -172,11 +181,11 @@ export default function OrdersPage() {
       osc.start(now);
       osc.stop(now + 0.6);
     } catch {
-      // Audio playback fallback
+      // Audio playback fallback / user interaction blocked
     }
-  };
+  }, []);
 
-  // Fetch customer orders on load
+  // Fetch initial orders
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
@@ -190,9 +199,9 @@ export default function OrdersPage() {
       .finally(() => setLoading(false));
   }, [authLoading, user]);
 
-  // Real-time WebSocket connection for on-time live tracking
+  // WebSocket Connection
   useEffect(() => {
-    if (!user) return;
+    if (!user?._id) return;
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:5004";
     const socket = io(apiBase, {
@@ -205,7 +214,6 @@ export default function OrdersPage() {
 
     socket.on("connect", () => {
       setSocketConnected(true);
-      // Join user room for targeted notifications
       socket.emit("join_user", user._id);
     });
 
@@ -213,21 +221,18 @@ export default function OrdersPage() {
       setSocketConnected(false);
     });
 
-    // Handler when order status changes in the backend
     const handleOrderUpdate = (updatedOrder: Order) => {
-      if (!updatedOrder || !updatedOrder._id) return;
+      if (!updatedOrder?._id) return;
 
       setOrders((prev) => {
         const index = prev.findIndex((o) => o._id === updatedOrder._id);
         if (index === -1) {
-          // If not in list, check if belongs to customer
           return [updatedOrder, ...prev];
         }
 
         const oldStatus = prev[index].status;
         const newStatus = updatedOrder.status;
 
-        // If status changed, notify customer on-time!
         if (oldStatus !== newStatus) {
           const detail = stepDetails[newStatus] || {
             label: newStatus.replace(/_/g, " "),
@@ -252,7 +257,7 @@ export default function OrdersPage() {
     };
 
     socket.on("order_updated", handleOrderUpdate);
-    socket.on("order_status_updated", (data: any) => {
+    socket.on("order_status_updated", (data: { order?: Order }) => {
       if (data?.order) handleOrderUpdate(data.order);
     });
     socket.on("order_status_changed", handleOrderUpdate);
@@ -260,27 +265,25 @@ export default function OrdersPage() {
     return () => {
       socket.disconnect();
     };
-  }, [user, soundEnabled]);
+  }, [user?._id, playStatusChime]);
 
-  // Auto-dismiss live toast after 8 seconds
+  // Auto-dismiss live toast
   useEffect(() => {
     if (!liveToast) return;
-    const timer = setTimeout(() => {
-      setLiveToast(null);
-    }, 8000);
+    const timer = setTimeout(() => setLiveToast(null), 8000);
     return () => clearTimeout(timer);
   }, [liveToast]);
 
-  const activeOrders = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
-  const visibleOrders = useMemo(
-    () =>
-      filter === "all"
-        ? orders
-        : filter === "active"
-        ? activeOrders
-        : orders.filter((order) => order.status === filter),
-    [orders, filter, activeOrders]
+  const activeOrders = useMemo(
+    () => orders.filter((order) => !["delivered", "cancelled"].includes(order.status)),
+    [orders]
   );
+
+  const visibleOrders = useMemo(() => {
+    if (filter === "all") return orders;
+    if (filter === "active") return activeOrders;
+    return orders.filter((order) => order.status === filter);
+  }, [orders, filter, activeOrders]);
 
   if (authLoading || loading) return <RestaurantLoader label="Gathering your live orders" />;
 
@@ -303,7 +306,7 @@ export default function OrdersPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
-      {/* Floating On-Time Live Status Toast Notification */}
+      {/* Toast Notification */}
       {liveToast && (
         <div className="fixed bottom-6 right-6 z-50 max-w-md animate-bounce rounded-3xl border-2 border-[#d9472b] bg-[#251611] p-5 text-white shadow-2xl">
           <div className="flex items-start justify-between gap-3">
@@ -336,16 +339,15 @@ export default function OrdersPage() {
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/20 px-3 py-1 text-xs font-bold text-green-300">
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
                 </span>
                 {socketConnected ? "Real-time Live Tracking Connected" : "Syncing Kitchen Updates..."}
               </span>
             </div>
 
-            {/* Sound Mute/Unmute toggle */}
             <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => setSoundEnabled((prev) => !prev)}
               className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white transition hover:bg-white/20"
               title={soundEnabled ? "Mute notification chimes" : "Enable notification chimes"}
             >
@@ -365,7 +367,7 @@ export default function OrdersPage() {
             <div>
               <h1 className="text-4xl font-black md:text-5xl">Live Order Tracker</h1>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/70">
-                Follow real-time cooking progress from our kitchen to your doorstep. Status changes appear on-time automatically.
+                Follow real-time cooking progress from our kitchen to your doorstep.
               </p>
             </div>
             <div className="flex gap-3">
@@ -431,6 +433,17 @@ export default function OrdersPage() {
               };
               const StepIcon = currentDetail.icon;
 
+              const formattedAddress = [
+                order.deliveryAddress?.street,
+                order.deliveryAddress?.city,
+                order.deliveryAddress?.state,
+                order.deliveryAddress?.zip,
+              ]
+                .filter(Boolean)
+                .join(", ") || "Standard Delivery";
+
+              const contactPhone = order.deliveryAddress?.phone || order.customerInfo?.phone;
+
               return (
                 <article
                   key={order._id}
@@ -487,7 +500,7 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    {/* Progress Stepper */}
+                    {/* Stepper */}
                     {order.status === "cancelled" ? (
                       <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4" />
@@ -555,7 +568,7 @@ export default function OrdersPage() {
                     </button>
                   </div>
 
-                  {/* Order Details Drawer */}
+                  {/* Drawer */}
                   {isOpen && (
                     <div className="border-t border-[#efd9bd] bg-[#fff8ed] p-5 md:px-6 text-xs">
                       {order.deliveryAddress && (
@@ -563,29 +576,19 @@ export default function OrdersPage() {
                           <div className="flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-[#d9472b] shrink-0" />
                             <span>
-                              Delivery Location:{" "}
-                              <b className="text-[#251611]">
-                                {order.deliveryAddress.city ||
-                                  order.deliveryAddress.street ||
-                                  "Standard Delivery"}
-                              </b>
+                              Delivery Location: <b className="text-[#251611]">{formattedAddress}</b>
                             </span>
                           </div>
-                          {(order.deliveryAddress.phone || (order as any).customerInfo?.phone) && (
+                          {contactPhone && (
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4 text-[#d9472b] shrink-0" />
                               <span>
-                                Contact Phone:{" "}
-                                <b className="text-[#251611]">
-                                  {order.deliveryAddress.phone || (order as any).customerInfo?.phone}
-                                </b>
+                                Contact Phone: <b className="text-[#251611]">{contactPhone}</b>
                               </span>
                             </div>
                           )}
-
                         </div>
                       )}
-
 
                       <p className="font-black text-[#251611] mb-2.5">Dishes in this order</p>
                       <div className="grid gap-2 sm:grid-cols-2">
@@ -618,5 +621,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-
