@@ -68,7 +68,16 @@ const orderSchema = new Schema({
         transactionId: String,
         paidAt: Date,
     },
+    estimatedTimeMinutes: {
+        type: Number,
+        default: 35,
+    },
+    targetDeliveryTime: Date,
+    acceptedAt: Date,
+    deliveredAt: Date,
+    cancelledAt: Date,
 }, { timestamps: true, strict: false });
 
 module.exports = mongoose.model('Order', orderSchema);
+
 

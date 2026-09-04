@@ -29,33 +29,44 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden items-center gap-1 md:flex">
-          <Link
-            href="/menu"
-            className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-          >
-            <Utensils className="h-4 w-4" /> Menu
-          </Link>
-          <Link
-            href="/orders"
-            className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-          >
-            <ReceiptText className="h-4 w-4" /> My Orders
-          </Link>
-          {user && (
-            <Link
-              href="/favourites"
-              className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-            >
-              <Heart className="h-4 w-4" /> Favourites
-            </Link>
-          )}
-          {user?.role === "admin" && (
-            <Link
-              href="/admin"
-              className="flex items-center gap-1.5 rounded-full bg-[#fff1d5] px-4 py-2 text-sm font-bold text-[#d9472b] shadow-sm hover:bg-[#ffe3b3]"
-            >
-              <ShieldCheck className="h-4 w-4" /> Admin Portal
-            </Link>
+          {user?.role === "admin" ? (
+            <>
+              <Link
+                href="/admin"
+                className="flex items-center gap-1.5 rounded-full bg-[#fff1d5] px-4 py-2 text-sm font-black text-[#d9472b] shadow-sm hover:bg-[#ffe3b3]"
+              >
+                <ShieldCheck className="h-4 w-4" /> Kitchen Dashboard
+              </Link>
+              <Link
+                href="/profile"
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+              >
+                <Settings className="h-4 w-4" /> Admin Settings
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/menu"
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+              >
+                <Utensils className="h-4 w-4" /> Menu
+              </Link>
+              <Link
+                href="/orders"
+                className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+              >
+                <ReceiptText className="h-4 w-4" /> My Orders
+              </Link>
+              {user && (
+                <Link
+                  href="/favourites"
+                  className="flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+                >
+                  <Heart className="h-4 w-4" /> Favourites
+                </Link>
+              )}
+            </>
           )}
         </nav>
 
@@ -91,39 +102,51 @@ export default function Header() {
                   <div className="border-b border-[#efd9bd] px-3 py-2">
                     <p className="text-xs font-black text-[#251611] truncate">{user.name}</p>
                     <span className="inline-block rounded-md bg-[#fff1d5] px-2 py-0.5 text-[10px] font-black uppercase text-[#d9472b]">
-                      {user.role}
+                      {user.role === "admin" ? "Restaurant Admin" : "Customer"}
                     </span>
                   </div>
                   <div className="mt-1 space-y-1">
-                    <Link
-                      href="/profile"
-                      onClick={() => setProfileOpen(false)}
-                      className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-                    >
-                      My Profile
-                    </Link>
-                    <Link
-                      href="/orders"
-                      onClick={() => setProfileOpen(false)}
-                      className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-                    >
-                      My Orders
-                    </Link>
-                    <Link
-                      href="/favourites"
-                      onClick={() => setProfileOpen(false)}
-                      className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
-                    >
-                      My Favourites
-                    </Link>
-                    {user.role === "admin" && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setProfileOpen(false)}
-                        className="block rounded-xl bg-[#fff1d5] px-3 py-2 text-xs font-black text-[#d9472b]"
-                      >
-                        Admin Dashboard
-                      </Link>
+                    {user.role === "admin" ? (
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl bg-[#fff1d5] px-3 py-2 text-xs font-black text-[#d9472b]"
+                        >
+                          Kitchen Dashboard
+                        </Link>
+                        <Link
+                          href="/profile"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+                        >
+                          Admin Profile
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/profile"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+                        >
+                          My Profile
+                        </Link>
+                        <Link
+                          href="/orders"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+                        >
+                          My Orders
+                        </Link>
+                        <Link
+                          href="/favourites"
+                          onClick={() => setProfileOpen(false)}
+                          className="block rounded-xl px-3 py-2 text-xs font-bold text-[#765f55] hover:bg-[#fff1d5] hover:text-[#d9472b]"
+                        >
+                          My Favourites
+                        </Link>
+                      </>
                     )}
                     <button
                       onClick={() => {
@@ -140,6 +163,7 @@ export default function Header() {
               )}
             </div>
           ) : (
+
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
@@ -170,46 +194,22 @@ export default function Header() {
       {mobileOpen && (
         <nav className="border-t border-[#efd9bd] bg-[#fffdf8] p-4 md:hidden">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 text-sm font-bold text-[#251611]">
-            <Link
-              href="/menu"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
-            >
-              Today's Menu
-            </Link>
-            <Link
-              href="/orders"
-              onClick={() => setMobileOpen(false)}
-              className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
-            >
-              My Orders
-            </Link>
-            {user ? (
+            {user?.role === "admin" ? (
               <>
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-xl bg-[#fff1d5] px-3 py-2.5 font-black text-[#d9472b]"
+                >
+                  Kitchen Dashboard
+                </Link>
                 <Link
                   href="/profile"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
                 >
-                  My Profile
+                  Admin Profile Settings
                 </Link>
-                <Link
-                  href="/favourites"
-                  onClick={() => setMobileOpen(false)}
-                  className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
-                >
-                  My Favourites
-                </Link>
-
-                {user.role === "admin" && (
-                  <Link
-                    href="/admin"
-                    onClick={() => setMobileOpen(false)}
-                    className="rounded-xl bg-[#fff1d5] px-3 py-2 font-black text-[#d9472b]"
-                  >
-                    Restaurant Admin Dashboard
-                  </Link>
-                )}
                 <button
                   onClick={() => {
                     setMobileOpen(false);
@@ -221,26 +221,71 @@ export default function Header() {
                 </button>
               </>
             ) : (
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <>
                 <Link
-                  href="/login"
+                  href="/menu"
                   onClick={() => setMobileOpen(false)}
-                  className="zaika-button text-center py-2.5 text-xs"
+                  className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
                 >
-                  Sign In / Register
+                  Today's Menu
                 </Link>
                 <Link
-                  href="/admin/login"
+                  href="/orders"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-xl border border-[#efd9bd] bg-white py-2.5 text-center text-xs font-bold text-[#251611]"
+                  className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
                 >
-                  Admin Portal
+                  My Orders
                 </Link>
-              </div>
+                {user ? (
+                  <>
+                    <Link
+                      href="/profile"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      href="/favourites"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl px-3 py-2 hover:bg-[#fff1d5]"
+                    >
+                      My Favourites
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        logout();
+                      }}
+                      className="rounded-xl px-3 py-2 text-left font-bold text-red-600 hover:bg-red-50"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <Link
+                      href="/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="zaika-button text-center py-2.5 text-xs"
+                    >
+                      Sign In / Register
+                    </Link>
+                    <Link
+                      href="/admin/login"
+                      onClick={() => setMobileOpen(false)}
+                      className="rounded-xl border border-[#efd9bd] bg-white py-2.5 text-center text-xs font-bold text-[#251611]"
+                    >
+                      Admin Portal
+                    </Link>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </nav>
       )}
+
     </header>
   );
 }

@@ -12,7 +12,15 @@ const getAdminOverview = async (req, res) => {
       Dish.find({}).lean(),
     ]);
 
-    const totalRevenue = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const validOrders = orders.filter((order) => order.status !== "cancelled");
+    const totalRevenue = validOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayOrders = orders.filter((order) => new Date(order.createdAt) >= startOfToday);
+    const todayValidOrders = todayOrders.filter((order) => order.status !== "cancelled");
+    const todayRevenue = todayValidOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+
     const activeOrders = orders.filter((order) =>
       ["placed", "accepted", "preparing", "out_for_delivery"].includes(order.status)
     ).length;
@@ -44,6 +52,8 @@ const getAdminOverview = async (req, res) => {
         orders: orders.length,
         activeOrders,
         totalRevenue,
+        todayRevenue,
+        todayOrdersCount: todayOrders.length,
       },
       users,
       customers,

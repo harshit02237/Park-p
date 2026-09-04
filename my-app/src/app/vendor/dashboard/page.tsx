@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   BarChart3,
   Bell,
+  Calendar,
   Check,
   ChevronRight,
   ClipboardList,
@@ -26,6 +27,7 @@ import {
   Sparkles,
   Star,
   Store,
+  TrendingUp,
   User,
   UtensilsCrossed,
   Volume2,
@@ -41,7 +43,7 @@ import { api } from "../../lib/api";
 import RestaurantLoader from "../../components/RestaurantLoader";
 
 interface Address { street?: string; city?: string; state?: string; zip?: string; }
-interface Restaurant { _id: string; name: string; description: string; address?: Address; logoUrl?: string; cuisine?: string[]; openingHours?: string; isVeg: boolean; rating: number; }
+interface Restaurant { _id: string; name: string; description: string; address?: Address; logoUrl?: string; cuisine?: string[]; openingHours?: string; isVeg: boolean; rating: number; defaultOrderTimeLimitMinutes?: number; }
 interface OrderItem { _id?: string; name?: string; quantity: number; price?: number; }
 interface PaymentDetails { method?: "cod" | "upi" | "card" | "online"; status?: "pending" | "paid" | "failed"; transactionId?: string; }
 interface Order {
@@ -54,7 +56,14 @@ interface Order {
   deliveryAddress?: Address;
   paymentDetails?: PaymentDetails;
   createdAt: string;
+  updatedAt?: string;
+  estimatedTimeMinutes?: number;
+  targetDeliveryTime?: string;
+  acceptedAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
 }
+
 
 interface IncomingNotification {
   id: string;
@@ -84,7 +93,17 @@ const statusClass = (status: string) => {
   }
 };
 
-const paymentBadge = (payment?: PaymentDetails) => {
+const paymentBadge = (payment?: PaymentDetails, orderStatus?: string) => {
+  if (orderStatus === "cancelled") {
+    return {
+      methodLabel: "No Payment Due",
+      icon: ShoppingBag,
+      isPaid: false,
+      toneClass: "bg-red-50 text-red-700 border-red-200",
+      status: "cancelled",
+    };
+  }
+
   const method = payment?.method || "cod";
   const status = payment?.status || (method === "cod" ? "pending" : "paid");
 
@@ -139,6 +158,80 @@ const extractCustomerLocation = (order: any): string => {
   );
 };
 
+const calculateTimeLimitStats = (order: any, nowMs: number) => {
+  const limitMins = order.estimatedTimeMinutes || 35;
+  const createdMs = new Date(order.createdAt).getTime();
+  const targetMs = order.targetDeliveryTime
+    ? new Date(order.targetDeliveryTime).getTime()
+    : createdMs + limitMins * 60 * 1000;
+
+  if (order.status === "delivered") {
+    const endMs = order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt || order.createdAt).getTime();
+    const durationMins = Math.max(1, Math.round((endMs - createdMs) / 60000));
+    return {
+      limitMins,
+      isCompleted: true,
+      label: `Delivered in ${durationMins}m`,
+      subtext: durationMins <= limitMins ? `Within ${limitMins}m limit` : `Exceeded limit by ${durationMins - limitMins}m`,
+      tone: durationMins <= limitMins ? "green" : "amber",
+      percent: 100,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: false,
+    };
+  }
+
+  if (order.status === "cancelled") {
+    return {
+      limitMins,
+      isCompleted: true,
+      label: "Order Cancelled",
+      subtext: "Cancelled by kitchen",
+      tone: "red",
+      percent: 0,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: false,
+    };
+  }
+
+  const diffMs = targetMs - nowMs;
+  const elapsedMs = nowMs - createdMs;
+  const totalDurationMs = limitMins * 60 * 1000;
+  const percent = Math.min(100, Math.max(5, Math.round((elapsedMs / totalDurationMs) * 100)));
+
+  if (diffMs > 0) {
+    const remainingMins = Math.floor(diffMs / 60000);
+    const remainingSecs = Math.floor((diffMs % 60000) / 1000);
+    return {
+      limitMins,
+      isCompleted: false,
+      label: `${remainingMins}m ${remainingSecs}s left`,
+      subtext: `Time limit: ${limitMins}m · ETA ${new Date(targetMs).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+      tone: remainingMins <= 5 ? "amber" : "green",
+      percent,
+      remainingMins,
+      remainingSecs,
+      isOverdue: false,
+    };
+  } else {
+    const overdueMins = Math.floor(Math.abs(diffMs) / 60000);
+    const overdueSecs = Math.floor((Math.abs(diffMs) % 60000) / 1000);
+    return {
+      limitMins,
+      isCompleted: false,
+      label: `⚠️ Overdue by ${overdueMins}m ${overdueSecs}s`,
+      subtext: `Exceeded ${limitMins}m limit · Kitchen Rush`,
+      tone: "red",
+      percent: 100,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: true,
+    };
+  }
+};
+
+
 
 // Web Audio API Synthesizer - Plays crisp restaurant kitchen bell alert
 function playKitchenOrderChime() {
@@ -174,27 +267,52 @@ function playKitchenOrderChime() {
 function Stat({
   label,
   value,
+  subtitle,
+  badge,
   icon: Icon,
   tone = "tomato",
 }: {
   label: string;
   value: string | number;
+  subtitle?: string;
+  badge?: { text: string; tone?: "tomato" | "green" | "gold" | "blue" | "purple" };
   icon: typeof BarChart3;
-  tone?: "tomato" | "green" | "gold";
+  tone?: "tomato" | "green" | "gold" | "blue" | "purple";
 }) {
   const tones = {
     tomato: "bg-[#fff1d5] text-[#d9472b]",
     green: "bg-green-50 text-[#15803d]",
     gold: "bg-amber-50 text-amber-700",
+    blue: "bg-blue-50 text-blue-700",
+    purple: "bg-purple-50 text-purple-700",
   };
+
+  const badgeTones = {
+    tomato: "bg-[#fff1d5] text-[#d9472b] border-[#efd9bd]",
+    green: "bg-green-50 text-[#15803d] border-green-200",
+    gold: "bg-amber-50 text-amber-800 border-amber-200",
+    blue: "bg-blue-50 text-blue-800 border-blue-200",
+    purple: "bg-purple-50 text-purple-800 border-purple-200",
+  };
+
   return (
-    <div className="rounded-2xl border border-[#efd9bd] bg-[#fffdf8] p-5 shadow-sm">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-bold text-[#765f55]">{label}</p>
-          <p className="mt-2 text-3xl font-black tracking-tight text-[#251611]">{value}</p>
+    <div className="rounded-2xl border border-[#efd9bd] bg-[#fffdf8] p-5 shadow-sm transition hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#765f55]">{label}</p>
+            {badge && (
+              <span className={`inline-block rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${badgeTones[badge.tone || "tomato"]}`}>
+                {badge.text}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-2xl sm:text-3xl font-black tracking-tight text-[#251611] truncate">{value}</p>
+          {subtitle && (
+            <p className="mt-1 text-xs font-semibold text-[#765f55]/90 truncate">{subtitle}</p>
+          )}
         </div>
-        <span className={`grid h-11 w-11 place-items-center rounded-xl ${tones[tone]}`}>
+        <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${tones[tone]}`}>
           <Icon className="h-5 w-5" />
         </span>
       </div>
@@ -219,7 +337,15 @@ function RestaurantAdminDashboard() {
   const [activeToast, setActiveToast] = useState<Order | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showNotificationCenter, setShowNotificationCenter] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Live seconds ticker for on-time order limits and countdowns
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
 
   // Initial Restaurant Profile Fetch
   useEffect(() => {
@@ -323,12 +449,44 @@ function RestaurantAdminDashboard() {
   };
 
   const metrics = useMemo(() => {
+    const isToday = (dateString?: string) => {
+      if (!dateString) return false;
+      const d = new Date(dateString);
+      const now = new Date();
+      return (
+        d.getFullYear() === now.getFullYear() &&
+        d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()
+      );
+    };
+
     const validOrders = orders.filter((o) => o.status !== "cancelled");
-    const revenue = validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const totalRevenue = validOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
+    const todayOrders = orders.filter((o) => isToday(o.createdAt));
+    const todayValidOrders = todayOrders.filter((o) => o.status !== "cancelled");
+    const todayRevenue = todayValidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+
     const active = orders.filter((o) => activeStatuses.includes(o.status)).length;
     const delivered = orders.filter((o) => o.status === "delivered").length;
-    const average = validOrders.length ? Math.round(revenue / validOrders.length) : 0;
-    return { revenue, active, delivered, average };
+    const todayDelivered = todayOrders.filter((o) => o.status === "delivered").length;
+    const todayActive = todayOrders.filter((o) => activeStatuses.includes(o.status)).length;
+    const average = validOrders.length ? Math.round(totalRevenue / validOrders.length) : 0;
+    const todayAverage = todayValidOrders.length ? Math.round(todayRevenue / todayValidOrders.length) : 0;
+
+    return {
+      revenue: totalRevenue,
+      todayRevenue,
+      todayOrdersCount: todayOrders.length,
+      todayValidCount: todayValidOrders.length,
+      todayDelivered,
+      todayActive,
+      totalOrdersCount: validOrders.length,
+      active,
+      delivered,
+      average,
+      todayAverage,
+    };
   }, [orders]);
 
   const recentOrders = orders.slice(0, 5);
@@ -356,14 +514,50 @@ function RestaurantAdminDashboard() {
 
 
   const updatePaymentStatus = async (orderId: string, paymentStatus: "paid" | "pending") => {
+    const targetOrder = orders.find((o) => o._id === orderId);
+    if (targetOrder?.status === "cancelled") {
+      alert("Cannot update payment status for a cancelled order.");
+      return;
+    }
     try {
       setUpdatingOrderId(orderId);
       const res = await api.put(`/orders/${orderId}/status`, { paymentStatus });
       setOrders((current) => current.map((order) => (order._id === orderId ? res.data : order)));
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Could not update payment status.");
     } finally {
       setUpdatingOrderId(null);
     }
   };
+
+  const updateTimeLimit = async (orderId: string, estimatedTimeMinutes: number) => {
+    if (isNaN(estimatedTimeMinutes) || estimatedTimeMinutes < 1) return;
+    try {
+      setUpdatingOrderId(orderId);
+      const res = await api.put(`/orders/${orderId}/status`, { estimatedTimeMinutes });
+      setOrders((current) => current.map((order) => (order._id === orderId ? res.data : order)));
+      if (activeToast?._id === orderId) {
+        setActiveToast((prev) => (prev ? { ...prev, estimatedTimeMinutes: res.data.estimatedTimeMinutes } : null));
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.message || "Could not update order time limit.");
+    } finally {
+      setUpdatingOrderId(null);
+    }
+  };
+
+  const promptCustomTimeLimit = (orderId: string, currentLimit: number) => {
+    const input = prompt("Set preparation & delivery time limit for this order (in minutes):", String(currentLimit));
+    if (input !== null) {
+      const mins = parseInt(input.trim(), 10);
+      if (!isNaN(mins) && mins > 0 && mins <= 300) {
+        updateTimeLimit(orderId, mins);
+      } else if (!isNaN(mins)) {
+        alert("Please enter a valid time limit between 1 and 300 minutes.");
+      }
+    }
+  };
+
 
   const logout = () => {
     localStorage.removeItem("zaika_token");
@@ -638,11 +832,47 @@ function RestaurantAdminDashboard() {
               ) : (
                 <>
                   {/* Stats Cards */}
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <Stat label="Total Order Sales" value={formatMoney(metrics.revenue)} icon={BarChart3} />
-                    <Stat label="Active Orders" value={metrics.active} icon={Clock3} tone="gold" />
-                    <Stat label="Completed Orders" value={metrics.delivered} icon={PackageCheck} tone="green" />
-                    <Stat label="Average Ticket" value={formatMoney(metrics.average)} icon={ClipboardList} />
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                    <Stat
+                      label="Total Order Sales"
+                      value={formatMoney(metrics.revenue)}
+                      subtitle={`${metrics.totalOrdersCount} lifetime orders`}
+                      badge={{ text: "All-Time", tone: "tomato" }}
+                      icon={BarChart3}
+                      tone="tomato"
+                    />
+                    <Stat
+                      label="Today's Order Sales"
+                      value={formatMoney(metrics.todayRevenue)}
+                      subtitle={`${metrics.todayValidCount} orders · Resets daily`}
+                      badge={{ text: "Resets Daily", tone: "gold" }}
+                      icon={TrendingUp}
+                      tone="gold"
+                    />
+                    <Stat
+                      label="Active Orders"
+                      value={metrics.active}
+                      subtitle={`${metrics.todayActive} placed today`}
+                      badge={{ text: "In Kitchen", tone: "blue" }}
+                      icon={Clock3}
+                      tone="blue"
+                    />
+                    <Stat
+                      label="Completed Orders"
+                      value={metrics.delivered}
+                      subtitle={`${metrics.todayDelivered} delivered today`}
+                      badge={{ text: "Delivered", tone: "green" }}
+                      icon={PackageCheck}
+                      tone="green"
+                    />
+                    <Stat
+                      label="Average Ticket"
+                      value={formatMoney(metrics.average)}
+                      subtitle={`Today: ${formatMoney(metrics.todayAverage)}`}
+                      badge={{ text: "Per Order", tone: "purple" }}
+                      icon={ClipboardList}
+                      tone="purple"
+                    />
                   </div>
 
                   {/* Recent Live Orders & Profile Widget */}
@@ -666,7 +896,7 @@ function RestaurantAdminDashboard() {
                           <p className="py-8 text-center text-sm text-[#765f55]">Loading orders…</p>
                         ) : recentOrders.length ? (
                           recentOrders.map((order) => {
-                            const pBadge = paymentBadge(order.paymentDetails);
+                            const pBadge = paymentBadge(order.paymentDetails, order.status);
                             return (
                               <div
                                 key={order._id}
@@ -791,8 +1021,14 @@ function RestaurantAdminDashboard() {
                   <h1 className="mt-1 text-3xl font-black text-[#251611]">Live Orders Desk</h1>
                   <p className="mt-1 text-sm text-[#765f55]">Receive instant customer orders and update progress.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-[#fff1d5] px-3.5 py-1.5 text-xs font-black text-[#d9472b]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#fff1d5] px-3.5 py-1.5 text-xs font-black text-[#d9472b] border border-[#efd9bd]">
+                    Today's Sales: {formatMoney(metrics.todayRevenue)} ({metrics.todayValidCount} orders)
+                  </span>
+                  <span className="rounded-full bg-green-50 px-3.5 py-1.5 text-xs font-black text-[#15803d] border border-green-200">
+                    Total Sales: {formatMoney(metrics.revenue)}
+                  </span>
+                  <span className="rounded-full bg-amber-50 px-3.5 py-1.5 text-xs font-black text-amber-800 border border-amber-200">
                     {metrics.active} active orders
                   </span>
                 </div>
@@ -831,7 +1067,9 @@ function RestaurantAdminDashboard() {
                   <div className="zaika-card rounded-2xl p-8 text-center text-[#765f55]">Loading orders…</div>
                 ) : visibleOrders.length ? (
                   visibleOrders.map((order) => {
-                    const pBadge = paymentBadge(order.paymentDetails);
+                    const pBadge = paymentBadge(order.paymentDetails, order.status);
+                    const timeStats = calculateTimeLimitStats(order, nowMs);
+
                     return (
                       <article
                         key={order._id}
@@ -851,6 +1089,83 @@ function RestaurantAdminDashboard() {
                                 {pBadge.methodLabel} ({pBadge.status.toUpperCase()})
                               </span>
                             </div>
+
+                            {/* Order Time Limit & Live Kitchen Timer */}
+                            <div
+                              className={`mt-3 rounded-2xl p-3.5 text-xs border ${
+                                timeStats.isOverdue
+                                  ? "border-red-300 bg-red-50 text-red-800"
+                                  : timeStats.tone === "amber"
+                                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                                  : "border-green-200 bg-green-50 text-green-900"
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`grid h-7 w-7 place-items-center rounded-xl font-bold ${
+                                      timeStats.isOverdue
+                                        ? "bg-red-200 text-red-800 animate-pulse"
+                                        : "bg-white text-[#d9472b] shadow-sm"
+                                    }`}
+                                  >
+                                    <Clock3 className="h-4 w-4" />
+                                  </span>
+                                  <div>
+                                    <p className="font-black text-xs flex items-center gap-1.5">
+                                      <span>{timeStats.label}</span>
+                                      {!timeStats.isCompleted && (
+                                        <span className="text-[10px] uppercase font-bold opacity-75">
+                                          ({timeStats.subtext})
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {!timeStats.isCompleted && (
+                                  <span className="text-[11px] font-black text-[#251611]">
+                                    Target Limit: <span className="text-[#d9472b]">{order.estimatedTimeMinutes || 35}m</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Quick Time Limit Setting Controls (Active Orders Only) */}
+                              {!["delivered", "cancelled"].includes(order.status) && (
+                                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 pt-2.5">
+                                  <span className="text-[10px] font-black uppercase tracking-wider opacity-80">
+                                    Set Time Limit:
+                                  </span>
+                                  <div className="flex flex-wrap items-center gap-1">
+                                    {[15, 25, 35, 45, 60].map((mins) => (
+                                      <button
+                                        key={mins}
+                                        type="button"
+                                        disabled={updatingOrderId === order._id}
+                                        onClick={() => updateTimeLimit(order._id, mins)}
+                                        className={`rounded-lg px-2.5 py-1 text-[10px] font-black transition ${
+                                          (order.estimatedTimeMinutes || 35) === mins
+                                            ? "bg-[#d9472b] text-white shadow-sm"
+                                            : "bg-white text-[#251611] border border-black/15 hover:border-[#d9472b] hover:text-[#d9472b]"
+                                        }`}
+                                      >
+                                        {mins}m
+                                      </button>
+                                    ))}
+                                    <button
+                                      type="button"
+                                      disabled={updatingOrderId === order._id}
+                                      onClick={() => promptCustomTimeLimit(order._id, order.estimatedTimeMinutes || 35)}
+                                      className="rounded-lg bg-[#fff1d5] border border-[#efd9bd] px-2.5 py-1 text-[10px] font-black text-[#d9472b] hover:bg-[#ffe6bc]"
+                                      title="Enter custom time limit in minutes"
+                                    >
+                                      ✏️ Custom...
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
 
                             {/* Customer Details - Clean Vertical List */}
                             <div className="mt-3 space-y-1.5 rounded-2xl bg-[#fff8ed] p-3.5 text-xs text-[#251611] border border-[#efd9bd]">
@@ -935,8 +1250,12 @@ function RestaurantAdminDashboard() {
                               )}
 
 
-                              {/* Toggle Paid status button for COD / pending orders */}
-                              {!pBadge.isPaid ? (
+                              {/* Toggle Paid status button for COD / pending orders (Hidden if cancelled) */}
+                              {order.status === "cancelled" ? (
+                                <span className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-700 border border-red-200">
+                                  ❌ Cancelled (No Payment)
+                                </span>
+                              ) : !pBadge.isPaid ? (
                                 <button
                                   type="button"
                                   onClick={() => updatePaymentStatus(order._id, "paid")}
@@ -1061,6 +1380,15 @@ function RestaurantAdminDashboard() {
                           <Clock3 className="h-4 w-4 text-[#d9472b]" /> Hours of Operation
                         </p>
                         <p className="mt-1 text-[#765f55]">{restaurant.openingHours || "Hours not set"}</p>
+                      </div>
+
+                      <div>
+                        <p className="font-black text-[#251611] flex items-center gap-1.5">
+                          <Clock3 className="h-4 w-4 text-[#d9472b]" /> Default Prep Time Limit
+                        </p>
+                        <p className="mt-1 font-bold text-[#d9472b]">
+                          ⏱️ {restaurant.defaultOrderTimeLimitMinutes || 35} Minutes (per order baseline)
+                        </p>
                       </div>
 
                       <div>

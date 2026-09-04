@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, CreditCard, Filter, Heart, MapPin, Minus, Phone, Plus, QrCode, Receipt, ShieldCheck, ShoppingBag, Smartphone, Trash2, User, Utensils } from "lucide-react";
+import { ArrowRight, Check, Clock3, CreditCard, Filter, Heart, MapPin, Minus, Phone, Plus, QrCode, Receipt, ShieldCheck, ShoppingBag, Smartphone, Sparkles, Trash2, User, Utensils } from "lucide-react";
+
 import { api } from "../lib/api";
 import useAuthContext from "../hooks/useAuth";
 
@@ -88,8 +89,11 @@ export default function MenuOrderPanel({
     (sum, item) => sum + item.dish.price * item.quantity,
     0
   );
-  const deliveryFee = itemCount > 0 ? 29 : 0;
+  // Free delivery for orders strictly above ₹150
+  const isFreeDelivery = subtotal > 150;
+  const deliveryFee = itemCount > 0 ? (isFreeDelivery ? 0 : 29) : 0;
   const total = subtotal + deliveryFee;
+  const amountNeededForFreeDelivery = Math.max(0, 151 - subtotal);
 
   useEffect(() => {
     if (user?.name && !customerName) {
@@ -474,17 +478,58 @@ export default function MenuOrderPanel({
           </div>
         )}
 
+        {/* Free Delivery Promo & Progress Bar */}
+        {itemCount > 0 && (
+          <div className="my-3">
+            {isFreeDelivery ? (
+              <div className="flex items-center gap-2 rounded-2xl border border-green-200 bg-green-50 p-2.5 text-xs font-bold text-[#15803d]">
+                <Sparkles className="h-4 w-4 shrink-0 text-[#15803d]" />
+                <span>🎉 Yay! You unlocked <b>FREE Delivery</b>!</span>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[#efd9bd] bg-[#fff8ed] p-2.5 text-xs text-[#765f55]">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1 text-[#251611]">
+                    <Sparkles className="h-3.5 w-3.5 text-[#f4a51c]" /> Free delivery above ₹150
+                  </span>
+                  <span className="text-[#d9472b]">Add {formatCurrency(amountNeededForFreeDelivery)} more</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[#efd9bd]">
+                  <div
+                    className="h-full rounded-full bg-[#d9472b] transition-all duration-300"
+                    style={{ width: `${Math.min(100, Math.round((subtotal / 150) * 100))}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Pricing Summary */}
         <div className="space-y-1.5 border-t border-[#efd9bd] pt-3 text-xs">
           <div className="flex justify-between text-[#765f55]">
             <span>Subtotal</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
-          <div className="flex justify-between text-[#765f55]">
-            <span>Delivery charge</span>
-            <span>{formatCurrency(deliveryFee)}</span>
+          <div className="flex justify-between items-center text-[#765f55]">
+            <span className="flex items-center gap-1.5">
+              <span>Delivery charge</span>
+              {isFreeDelivery && (
+                <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#15803d]">
+                  Free
+                </span>
+              )}
+            </span>
+            {isFreeDelivery ? (
+              <span className="font-black text-[#15803d]">
+                <span className="line-through text-[#765f55]/60 mr-1.5 font-normal text-[11px]">₹29</span>
+                FREE
+              </span>
+            ) : (
+              <span className="font-semibold">{formatCurrency(deliveryFee)}</span>
+            )}
           </div>
-          <div className="flex justify-between text-base font-black text-[#251611] pt-1">
+          <div className="flex justify-between text-base font-black text-[#251611] pt-1.5 border-t border-[#efd9bd]/60">
             <span>Total Payable</span>
             <span className="text-[#d9472b]">{formatCurrency(total)}</span>
           </div>
@@ -548,102 +593,39 @@ export default function MenuOrderPanel({
             <button
               type="button"
               onClick={() => setPaymentMethod("cod")}
-              className={`rounded-xl border p-2.5 text-center transition flex flex-col items-center gap-1 ${
-                paymentMethod === "cod"
-                  ? "border-[#d9472b] bg-[#fff1d5] text-[#d9472b] font-black shadow-sm"
-                  : "border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff8ed]"
-              }`}
+              className="rounded-xl border p-2.5 text-center transition flex flex-col items-center gap-1 border-[#d9472b] bg-[#fff1d5] text-[#d9472b] font-black shadow-sm"
             >
               <ShoppingBag className="h-4 w-4" />
               <span className="text-[11px]">Cash on Delivery</span>
+              <span className="rounded-full bg-[#d9472b] px-1.5 py-0.5 text-[9px] text-white font-bold">Active</span>
             </button>
 
-            {/* UPI QR */}
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("upi")}
-              className={`rounded-xl border p-2.5 text-center transition flex flex-col items-center gap-1 ${
-                paymentMethod === "upi"
-                  ? "border-[#d9472b] bg-[#fff1d5] text-[#d9472b] font-black shadow-sm"
-                  : "border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff8ed]"
-              }`}
+            {/* UPI QR - Coming Soon */}
+            <div
+              className="rounded-xl border border-[#efd9bd] bg-[#f8f5f2] p-2.5 text-center flex flex-col items-center gap-1 opacity-75 cursor-not-allowed select-none"
+              title="UPI online payment gateway is coming soon"
             >
-              <QrCode className="h-4 w-4" />
-              <span className="text-[11px]">UPI / QR Code</span>
-            </button>
+              <QrCode className="h-4 w-4 text-[#765f55]" />
+              <span className="text-[11px] font-bold text-[#765f55]">UPI QR</span>
+              <span className="rounded-full bg-[#efd9bd] px-1.5 py-0.5 text-[9px] font-black text-[#765f55] uppercase">Coming Soon</span>
+            </div>
 
-            {/* Online Card */}
-            <button
-              type="button"
-              onClick={() => setPaymentMethod("card")}
-              className={`rounded-xl border p-2.5 text-center transition flex flex-col items-center gap-1 ${
-                paymentMethod === "card"
-                  ? "border-[#d9472b] bg-[#fff1d5] text-[#d9472b] font-black shadow-sm"
-                  : "border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff8ed]"
-              }`}
+            {/* Online Card - Coming Soon */}
+            <div
+              className="rounded-xl border border-[#efd9bd] bg-[#f8f5f2] p-2.5 text-center flex flex-col items-center gap-1 opacity-75 cursor-not-allowed select-none"
+              title="Online card payment gateway is coming soon"
             >
-              <CreditCard className="h-4 w-4" />
-              <span className="text-[11px]">Card / Netbanking</span>
-            </button>
+              <CreditCard className="h-4 w-4 text-[#765f55]" />
+              <span className="text-[11px] font-bold text-[#765f55]">Card / Online</span>
+              <span className="rounded-full bg-[#efd9bd] px-1.5 py-0.5 text-[9px] font-black text-[#765f55] uppercase">Coming Soon</span>
+            </div>
           </div>
 
-          {/* Payment Method Details / Interaction */}
-          {paymentMethod === "upi" && (
-            <div className="mt-3 rounded-2xl border border-[#efd9bd] bg-[#fffdf8] p-3 text-center">
-              <p className="text-xs font-black text-[#251611]">Scan QR or Pay to UPI ID</p>
-              
-              {/* Simulated QR Visual */}
-              <div className="my-2.5 mx-auto grid h-28 w-28 place-items-center rounded-xl border-2 border-dashed border-[#d9472b] bg-white p-2">
-                <QrCode className="h-20 w-20 text-[#251611]" />
-              </div>
-
-              <div className="rounded-lg bg-[#fff8ed] p-1.5 text-[11px] font-mono font-bold text-[#d9472b]">
-                zaika.restaurant@okaxis
-              </div>
-
-              <p className="mt-2 text-[11px] text-[#765f55]">
-                GPay, PhonePe, Paytm or any UPI App accepted
-              </p>
-            </div>
-          )}
-
-          {paymentMethod === "card" && (
-            <div className="mt-3 space-y-2 rounded-2xl border border-[#efd9bd] bg-[#fffdf8] p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black text-[#251611]">Card Payment Details</p>
-                <ShieldCheck className="h-4 w-4 text-[#15803d]" />
-              </div>
-              <input
-                placeholder="Card Number (e.g. 4532 •••• •••• 8892)"
-                value={cardDetails.number}
-                onChange={(e) => setCardDetails((c) => ({ ...c, number: e.target.value }))}
-                className="zaika-input text-xs py-1.5"
-              />
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  placeholder="MM/YY"
-                  value={cardDetails.expiry}
-                  onChange={(e) => setCardDetails((c) => ({ ...c, expiry: e.target.value }))}
-                  className="zaika-input text-xs py-1.5"
-                />
-                <input
-                  placeholder="CVV"
-                  type="password"
-                  maxLength={4}
-                  value={cardDetails.cvv}
-                  onChange={(e) => setCardDetails((c) => ({ ...c, cvv: e.target.value }))}
-                  className="zaika-input text-xs py-1.5"
-                />
-              </div>
-            </div>
-          )}
-
-          {paymentMethod === "cod" && (
-            <div className="mt-3 rounded-xl bg-[#fff8ed] p-2.5 text-xs text-[#765f55]">
-              💵 Pay cash or scan QR when your delivery reaches your doorstep.
-            </div>
-          )}
+          <div className="mt-3 rounded-xl bg-[#fff8ed] p-2.5 text-xs text-[#765f55] border border-[#efd9bd]">
+            💵 <b>Cash on Delivery (COD)</b> is active. Pay with cash or scan payment directly to the delivery rider at your doorstep. (Online UPI & Cards coming soon!)
+          </div>
         </div>
+
 
         {error && (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-700">
@@ -651,12 +633,21 @@ export default function MenuOrderPanel({
           </div>
         )}
 
+        {/* Estimated Delivery Time Limit Info */}
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#efd9bd] bg-[#fff8ed] p-3 text-xs text-[#251611]">
+          <span className="flex items-center gap-1.5 font-bold text-[#765f55]">
+            <Clock3 className="h-4 w-4 text-[#d9472b]" /> Estimated Delivery Limit:
+          </span>
+          <span className="font-black text-[#d9472b]">~35 mins express</span>
+        </div>
+
         <button
           type="button"
           onClick={placeOrder}
           disabled={placingOrder || cartItems.length === 0}
           className="zaika-button mt-4 w-full py-3.5 font-bold shadow-md flex items-center justify-center gap-2"
         >
+
           {placingOrder ? (
             "Processing Order..."
           ) : (

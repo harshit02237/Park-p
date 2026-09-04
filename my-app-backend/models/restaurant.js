@@ -47,6 +47,10 @@ const restaurantSchema = new Schema({
         type: String,
         default: "",
     },
+    defaultOrderTimeLimitMinutes: {
+        type: Number,
+        default: 35,
+    },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

@@ -45,7 +45,7 @@ export default function Chatbot() {
   const [favourites, setFavourites] = useState<FavouriteDish[]>([]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || user.role === "admin") {
       setOrders([]);
       setFavourites([]);
       return;
@@ -67,18 +67,34 @@ export default function Chatbot() {
     });
   }, [user]);
 
-  const quickReplies = useMemo(
-    () => [
+  const quickReplies = useMemo(() => {
+    if (user?.role === "admin") {
+      return [
+        { label: "Kitchen Dashboard", value: "open admin dashboard" },
+        { label: "Admin Settings", value: "open profile settings" },
+      ];
+    }
+    return [
       { label: "Today's Menu", value: "show today's menu" },
       { label: "Track Order", value: "track my latest order" },
       { label: "Payment Modes", value: "what payment methods do you accept?" },
       { label: "Favourites", value: "show my favourite dishes" },
-    ],
-    []
-  );
+    ];
+  }, [user?.role]);
+
 
   const replyTo = (text: string): ChatMessage => {
     const normalized = text.toLowerCase();
+
+    if (normalized.includes("admin") || normalized.includes("dashboard") || normalized.includes("kitchen")) {
+      return {
+        role: "assistant",
+        text: "Access the Live Orders Desk and Restaurant Catalogue from the Kitchen Dashboard.",
+        actionHref: "/admin",
+        actionLabel: "Open Kitchen Dashboard",
+      };
+    }
+
 
     if (normalized.includes("menu") || normalized.includes("dish") || normalized.includes("food") || normalized.includes("order")) {
       if (normalized.includes("track") || normalized.includes("status")) {
@@ -117,10 +133,19 @@ export default function Chatbot() {
       };
     }
 
+    if (normalized.includes("deliver") || normalized.includes("charge") || normalized.includes("fee") || normalized.includes("free delivery") || normalized.includes("shipping")) {
+      return {
+        role: "assistant",
+        text: "Delivery is FREE on all orders above ₹150! For orders up to ₹150, a standard delivery charge of ₹29 applies.",
+        actionHref: "/menu",
+        actionLabel: "Order with Free Delivery",
+      };
+    }
+
     if (normalized.includes("pay") || normalized.includes("upi") || normalized.includes("cod") || normalized.includes("card")) {
       return {
         role: "assistant",
-        text: "We accept Cash on Delivery (COD), UPI (Google Pay, PhonePe, Paytm QR), and all major Credit/Debit cards.",
+        text: "We currently accept Cash on Delivery (COD). Online UPI QR and Cards are coming soon!",
         actionHref: "/menu",
         actionLabel: "Order Now",
       };

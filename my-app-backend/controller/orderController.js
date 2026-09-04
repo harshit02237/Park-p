@@ -69,7 +69,8 @@ const createOrder = async (req, res) => {
       totalAmount += dish.price * quantity;
     }
 
-    const deliveryFee = totalAmount > 0 ? 29 : 0;
+    // Orders above ₹150 receive FREE Delivery; otherwise standard ₹29
+    const deliveryFee = totalAmount > 150 ? 0 : (totalAmount > 0 ? 29 : 0);
     const finalAmount = totalAmount + deliveryFee;
 
     const paymentMethod = paymentDetails?.method || "cod";
@@ -92,6 +93,19 @@ const createOrder = async (req, res) => {
         ? deliveryAddress
         : "Standard Delivery");
 
+    let defaultMins = 35;
+    try {
+      const rest = await Restaurant.findById(restaurantId).lean();
+      if (rest?.defaultOrderTimeLimitMinutes && Number(rest.defaultOrderTimeLimitMinutes) > 0) {
+        defaultMins = Number(rest.defaultOrderTimeLimitMinutes);
+      }
+    } catch (e) {
+      // fallback
+    }
+    const estimatedMins = Number(req.body.estimatedTimeMinutes) || defaultMins;
+    const now = new Date();
+    const targetDeliveryTime = new Date(now.getTime() + estimatedMins * 60 * 1000);
+
     let order = await Order.create({
       customerId: req.user._id,
       restaurantId,
@@ -109,7 +123,8 @@ const createOrder = async (req, res) => {
         phone: custPhone,
         name: custName,
       },
-
+      estimatedTimeMinutes: estimatedMins,
+      targetDeliveryTime,
       paymentDetails: {
         method: paymentMethod,
         status: paymentStatus,
@@ -118,6 +133,7 @@ const createOrder = async (req, res) => {
         paidAt: paymentStatus === "paid" ? new Date() : undefined,
       },
     });
+
 
 
 
@@ -202,7 +218,7 @@ const getVendorOrders = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paymentStatus } = req.body;
+    const { status, paymentStatus, estimatedTimeMinutes } = req.body;
 
     const order = await Order.findById(id).populate("restaurantId").populate("customerId", "name email avatar");
     if (!order) return res.status(404).json({ message: "Order not found" });
@@ -219,10 +235,26 @@ const updateOrderStatus = async (req, res) => {
         return res.status(422).json({ message: "Invalid order status" });
       }
       order.status = status;
+      if (status === "accepted" && !order.acceptedAt) {
+        order.acceptedAt = new Date();
+      } else if (status === "delivered" && !order.deliveredAt) {
+        order.deliveredAt = new Date();
+      } else if (status === "cancelled" && !order.cancelledAt) {
+        order.cancelledAt = new Date();
+      }
     }
 
+    if (estimatedTimeMinutes && !isNaN(Number(estimatedTimeMinutes))) {
+      order.estimatedTimeMinutes = Number(estimatedTimeMinutes);
+      order.targetDeliveryTime = new Date(Date.now() + order.estimatedTimeMinutes * 60 * 1000);
+    }
 
     if (paymentStatus && ["pending", "paid", "failed"].includes(paymentStatus)) {
+      if (order.status === "cancelled") {
+        return res.status(400).json({
+          message: "Cannot update payment status for a cancelled order.",
+        });
+      }
       if (!order.paymentDetails) {
         order.paymentDetails = {};
       }
@@ -231,6 +263,7 @@ const updateOrderStatus = async (req, res) => {
         order.paymentDetails.paidAt = new Date();
       }
     }
+
 
     await order.save();
 

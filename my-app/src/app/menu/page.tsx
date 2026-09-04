@@ -82,9 +82,14 @@ export default async function MenuPage() {
       <section className="relative mb-10 overflow-hidden rounded-3xl bg-[#251611] p-7 text-white shadow-xl md:p-10">
         <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full border-[30px] border-[#f4a51c]/15" />
         <div className="relative">
-          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-[#f8cd72]">
-            <Sparkles className="h-4 w-4" /> Fresh Kitchen Selection
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-[#f8cd72]">
+              <Sparkles className="h-4 w-4" /> Fresh Kitchen Selection
+            </p>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f4a51c] px-3.5 py-1 text-xs font-black text-[#251611] shadow-sm">
+              🚚 FREE Delivery on orders above ₹150
+            </span>
+          </div>
           <div className="mt-3 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="text-4xl font-black md:text-5xl">{restaurant?.name || "Our Menu"}</h1>

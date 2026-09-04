@@ -12,14 +12,91 @@ const money = (value: number) => new Intl.NumberFormat("en-IN", { style: "curren
 
 export default function FavouritesPage() {
   const { user, loading: authLoading } = useAuthContext();
-  const [items, setItems] = useState<FavouriteDish[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const [query, setQuery] = useState(""); const [removing, setRemoving] = useState<string | null>(null);
-  useEffect(() => { if (authLoading) return; if (!user) { setLoading(false); return; } api.get("/favourites").then((res) => setItems(Array.isArray(res.data) ? res.data : [])).catch(() => setError("Could not load favourite items.")).finally(() => setLoading(false)); }, [authLoading, user]);
-  const visibleItems = useMemo(() => items.filter((item) => `${item.name} ${item.category || ""} ${item.description || ""}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
-  const removeFavourite = async (dishId: string) => { const previous = items; setRemoving(dishId); setItems((current) => current.filter((item) => item._id !== dishId)); try { const res = await api.delete(`/favourites/${dishId}`); setItems(Array.isArray(res.data) ? res.data : []); } catch { setItems(previous); setError("Could not remove this favourite."); } finally { setRemoving(null); } };
+  const [items, setItems] = useState<FavouriteDish[]>([]);
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || user.role === "admin") {
+      setLoading(false);
+      return;
+    }
+
+    api
+      .get("/favourites")
+      .then((res) => setItems(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setError("Could not load favourite items."))
+      .finally(() => setLoading(false));
+  }, [authLoading, user]);
+
+  const visibleItems = useMemo(
+    () =>
+      items.filter((item) =>
+        `${item.name} ${item.category || ""} ${item.description || ""}`
+          .toLowerCase()
+          .includes(query.toLowerCase())
+      ),
+    [items, query]
+  );
+
+  const removeFavourite = async (dishId: string) => {
+    const previous = items;
+    setRemoving(dishId);
+    setItems((current) => current.filter((item) => item._id !== dishId));
+    try {
+      const res = await api.delete(`/favourites/${dishId}`);
+      setItems(Array.isArray(res.data) ? res.data : []);
+    } catch {
+      setItems(previous);
+      setError("Could not remove this favourite.");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
   if (authLoading || loading) return <RestaurantLoader label="Gathering your favourites" />;
-  if (!user) return <div className="mx-auto max-w-3xl px-4 py-20 text-center"><div className="zaika-card rounded-3xl p-10"><Heart className="mx-auto h-11 w-11 text-[#d9472b]" /><h1 className="mt-4 text-3xl font-black text-[#251611]">Save what you love</h1><p className="mx-auto mt-3 max-w-md text-[#765f55]">Sign in to build a shortcut to all your favourite dishes.</p><Link href="/login" className="zaika-button mt-6 inline-block px-6 py-3">Login to continue</Link></div></div>;
+
+  if (user?.role === "admin") {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="zaika-card rounded-3xl p-10">
+          <Heart className="mx-auto h-11 w-11 text-[#d9472b]" />
+          <h1 className="mt-4 text-3xl font-black text-[#251611]">Admin Account</h1>
+          <p className="mx-auto mt-3 max-w-md text-[#765f55]">
+            Favourites are for customer accounts. As an admin, you can manage the full menu catalogue in the Kitchen Dashboard.
+          </p>
+          <Link href="/admin" className="zaika-button mt-6 inline-flex items-center gap-2 px-6 py-3">
+            Open Kitchen Dashboard <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="zaika-card rounded-3xl p-10">
+          <Heart className="mx-auto h-11 w-11 text-[#d9472b]" />
+          <h1 className="mt-4 text-3xl font-black text-[#251611]">Save what you love</h1>
+          <p className="mx-auto mt-3 max-w-md text-[#765f55]">
+            Sign in to build a shortcut to all your favourite dishes.
+          </p>
+          <Link href="/login" className="zaika-button mt-6 inline-block px-6 py-3">
+            Login to continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
+
       <section className="relative overflow-hidden rounded-3xl bg-[#251611] p-7 text-white shadow-xl md:p-10">
         <div className="absolute -right-14 -top-12 grid h-56 w-56 place-items-center rounded-full border-[28px] border-[#d9472b]/35">
           <Heart className="h-10 w-10 fill-[#f4a51c]/30 text-[#f4a51c]/50" />

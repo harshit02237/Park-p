@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Check,
+  ClipboardList,
   Edit2,
   Heart,
   Mail,
@@ -14,9 +15,11 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Store,
   User,
   UtensilsCrossed,
 } from "lucide-react";
+
 import { api } from "../lib/api";
 import useAuthContext from "../hooks/useAuth";
 import RestaurantLoader from "../components/RestaurantLoader";
@@ -40,17 +43,20 @@ export default function ProfilePage() {
       setName(user.name || "");
       setAvatar(user.avatar || "");
 
-      // Fetch user's orders and favourites count
-      Promise.allSettled([api.get("/orders/my"), api.get("/favourites")]).then(([ordersRes, favsRes]) => {
-        if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value.data)) {
-          setOrderCount(ordersRes.value.data.length);
-        }
-        if (favsRes.status === "fulfilled" && Array.isArray(favsRes.value.data)) {
-          setFavouriteCount(favsRes.value.data.length);
-        }
-      });
+      // Fetch customer's orders and favourites count only if not admin
+      if (user.role !== "admin") {
+        Promise.allSettled([api.get("/orders/my"), api.get("/favourites")]).then(([ordersRes, favsRes]) => {
+          if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value.data)) {
+            setOrderCount(ordersRes.value.data.length);
+          }
+          if (favsRes.status === "fulfilled" && Array.isArray(favsRes.value.data)) {
+            setFavouriteCount(favsRes.value.data.length);
+          }
+        });
+      }
     }
   }, [user]);
+
 
   if (authLoading) {
     return <RestaurantLoader label="Loading your profile" />;
@@ -216,18 +222,18 @@ export default function ProfilePage() {
             <div className="zaika-card flex flex-col justify-between rounded-3xl p-6">
               <div>
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff1d5] text-[#d9472b]">
-                  <UtensilsCrossed className="h-6 w-6" />
+                  <ClipboardList className="h-6 w-6" />
                 </div>
-                <h3 className="mt-4 text-xl font-black text-[#251611]">Kitchen Dashboard</h3>
+                <h3 className="mt-4 text-xl font-black text-[#251611]">Live Orders Desk</h3>
                 <p className="mt-1 text-xs text-[#765f55]">
-                  Manage incoming orders in real-time, update food status, and sound audio chimes.
+                  Manage incoming customer orders in real time, advance food statuses, and trigger live chimes.
                 </p>
               </div>
               <Link
                 href="/admin"
                 className="zaika-button mt-6 flex items-center justify-between px-4 py-2.5 text-xs font-bold"
               >
-                <span>Open Dashboard</span>
+                <span>Open Live Orders</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -235,42 +241,43 @@ export default function ProfilePage() {
             <div className="zaika-card flex flex-col justify-between rounded-3xl p-6">
               <div>
                 <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff1d5] text-[#d9472b]">
-                  <ShoppingBag className="h-6 w-6" />
+                  <UtensilsCrossed className="h-6 w-6" />
                 </div>
-                <h3 className="mt-4 text-xl font-black text-[#251611]">Explore Customer View</h3>
+                <h3 className="mt-4 text-xl font-black text-[#251611]">Menu Catalogue</h3>
                 <p className="mt-1 text-xs text-[#765f55]">
-                  Browse the public restaurant menu, test customer checkout, and view dish prices.
+                  Add new dishes, update pricing, upload food photography, and toggle availability.
                 </p>
               </div>
               <Link
-                href="/menu"
+                href="/admin"
                 className="rounded-xl border border-[#efd9bd] bg-[#fff8ed] mt-6 flex items-center justify-between px-4 py-2.5 text-xs font-bold text-[#251611] hover:bg-[#fff1d5]"
               >
-                <span>Browse Menu</span>
+                <span>Manage Menu Dishes</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
             <div className="zaika-card flex flex-col justify-between rounded-3xl p-6">
               <div>
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-red-50 text-[#d9472b]">
-                  <ReceiptText className="h-6 w-6" />
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff1d5] text-[#d9472b]">
+                  <Store className="h-6 w-6" />
                 </div>
-                <h3 className="mt-4 text-xl font-black text-[#251611]">Order Archives</h3>
+                <h3 className="mt-4 text-xl font-black text-[#251611]">Storefront Settings</h3>
                 <p className="mt-1 text-xs text-[#765f55]">
-                  Review historical customer orders, payments, and customer delivery notes.
+                  Configure restaurant address, opening hours, brand logo, and kitchen details.
                 </p>
               </div>
               <Link
-                href="/orders"
+                href="/admin"
                 className="rounded-xl border border-[#efd9bd] bg-[#fff8ed] mt-6 flex items-center justify-between px-4 py-2.5 text-xs font-bold text-[#251611] hover:bg-[#fff1d5]"
               >
-                <span>View Orders</span>
+                <span>Restaurant Settings</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </>
         ) : (
+
           <>
             <div className="zaika-card flex flex-col justify-between rounded-3xl p-6">
               <div>

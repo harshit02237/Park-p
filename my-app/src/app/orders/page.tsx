@@ -57,7 +57,14 @@ interface Order {
   customerInfo?: { phone?: string; name?: string };
   paymentDetails?: PaymentDetails;
   createdAt: string;
+  updatedAt?: string;
+  estimatedTimeMinutes?: number;
+  targetDeliveryTime?: string;
+  acceptedAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
 }
+
 
 interface LiveNotification {
   id: string;
@@ -129,7 +136,81 @@ const statusTone = (status: string) => {
   }
 };
 
+const calculateTimeLimitStats = (order: any, nowMs: number) => {
+  const limitMins = order.estimatedTimeMinutes || 35;
+  const createdMs = new Date(order.createdAt).getTime();
+  const targetMs = order.targetDeliveryTime
+    ? new Date(order.targetDeliveryTime).getTime()
+    : createdMs + limitMins * 60 * 1000;
+
+  if (order.status === "delivered") {
+    const endMs = order.deliveredAt ? new Date(order.deliveredAt).getTime() : new Date(order.updatedAt || order.createdAt).getTime();
+    const durationMins = Math.max(1, Math.round((endMs - createdMs) / 60000));
+    return {
+      limitMins,
+      isCompleted: true,
+      label: `Delivered in ${durationMins}m`,
+      subtext: durationMins <= limitMins ? `Delivered on-time within ${limitMins}m limit` : `Delivery completed in ${durationMins}m`,
+      tone: durationMins <= limitMins ? "green" : "amber",
+      percent: 100,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: false,
+    };
+  }
+
+  if (order.status === "cancelled") {
+    return {
+      limitMins,
+      isCompleted: true,
+      label: "Order Cancelled",
+      subtext: "Cancelled by kitchen",
+      tone: "red",
+      percent: 0,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: false,
+    };
+  }
+
+  const diffMs = targetMs - nowMs;
+  const elapsedMs = nowMs - createdMs;
+  const totalDurationMs = limitMins * 60 * 1000;
+  const percent = Math.min(100, Math.max(5, Math.round((elapsedMs / totalDurationMs) * 100)));
+
+  if (diffMs > 0) {
+    const remainingMins = Math.floor(diffMs / 60000);
+    const remainingSecs = Math.floor((diffMs % 60000) / 1000);
+    return {
+      limitMins,
+      isCompleted: false,
+      label: `${remainingMins}m ${remainingSecs}s remaining`,
+      subtext: `Time limit: ${limitMins} mins · Expected by ${new Date(targetMs).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`,
+      tone: remainingMins <= 5 ? "amber" : "green",
+      percent,
+      remainingMins,
+      remainingSecs,
+      isOverdue: false,
+    };
+  } else {
+    const overdueMins = Math.floor(Math.abs(diffMs) / 60000);
+    const overdueSecs = Math.floor((Math.abs(diffMs) % 60000) / 1000);
+    return {
+      limitMins,
+      isCompleted: false,
+      label: `Expediting Delivery (+${overdueMins}m ${overdueSecs}s)`,
+      subtext: `Time limit of ${limitMins}m reached · Rider is hurrying to you!`,
+      tone: "red",
+      percent: 100,
+      remainingMins: 0,
+      remainingSecs: 0,
+      isOverdue: true,
+    };
+  }
+};
+
 export default function OrdersPage() {
+
   const { user, loading: authLoading } = useAuthContext();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +223,7 @@ export default function OrdersPage() {
   const soundEnabledRef = useRef(soundEnabled);
   const [liveToast, setLiveToast] = useState<LiveNotification | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
   const socketRef = useRef<Socket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -150,7 +232,13 @@ export default function OrdersPage() {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
-  // Web Audio API chime
+  // Live timer tick for on-time delivery countdowns
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Play pleasant notification sound via Web Audio API
   const playStatusChime = useCallback(() => {
     if (!soundEnabledRef.current) return;
     try {
@@ -188,7 +276,7 @@ export default function OrdersPage() {
   // Fetch initial orders
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || user.role === "admin") {
       setLoading(false);
       return;
     }
@@ -199,7 +287,7 @@ export default function OrdersPage() {
       .finally(() => setLoading(false));
   }, [authLoading, user]);
 
-  // WebSocket Connection
+  // Real-time WebSocket connection for on-time live tracking
   useEffect(() => {
     if (!user?._id) return;
 
@@ -287,6 +375,23 @@ export default function OrdersPage() {
 
   if (authLoading || loading) return <RestaurantLoader label="Gathering your live orders" />;
 
+  if (user?.role === "admin") {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="zaika-card rounded-3xl p-10">
+          <ReceiptText className="mx-auto h-11 w-11 text-[#d9472b]" />
+          <h1 className="mt-4 text-3xl font-black text-[#251611]">Admin Account</h1>
+          <p className="mx-auto mt-3 max-w-md text-[#765f55]">
+            "My Orders" is for customer delivery tracking. You can view and process all customer orders on the Kitchen Live Orders Desk.
+          </p>
+          <Link href="/admin" className="zaika-button mt-6 inline-flex items-center gap-2 px-6 py-3">
+            Open Kitchen Live Orders Desk <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
@@ -303,6 +408,8 @@ export default function OrdersPage() {
       </div>
     );
   }
+
+
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:py-12">
@@ -432,6 +539,7 @@ export default function OrdersPage() {
                 icon: Clock3,
               };
               const StepIcon = currentDetail.icon;
+              const timeStats = calculateTimeLimitStats(order, nowMs);
 
               const formattedAddress = [
                 order.deliveryAddress?.street,
@@ -445,6 +553,7 @@ export default function OrdersPage() {
               const contactPhone = order.deliveryAddress?.phone || order.customerInfo?.phone;
 
               return (
+
                 <article
                   key={order._id}
                   className="overflow-hidden rounded-3xl border border-[#efd9bd] bg-[#fffdf8] shadow-sm transition hover:shadow-md"
@@ -470,14 +579,20 @@ export default function OrdersPage() {
                               )}
                               {currentDetail.label}
                             </span>
-                            <span className="rounded-full border border-[#efd9bd] bg-white px-2.5 py-0.5 text-[11px] font-bold uppercase text-[#765f55]">
-                              {method === "cod"
-                                ? "💵 Cash on Delivery"
-                                : method === "upi"
-                                ? "📱 UPI QR"
-                                : "💳 Card"}{" "}
-                              · {pStatus === "paid" ? "✅ Paid" : "⏳ Payment Pending"}
-                            </span>
+                            {order.status === "cancelled" ? (
+                              <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-700">
+                                ❌ Cancelled · No Payment Due
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-[#efd9bd] bg-white px-2.5 py-0.5 text-[11px] font-bold uppercase text-[#765f55]">
+                                {method === "cod"
+                                  ? "💵 Cash on Delivery"
+                                  : method === "upi"
+                                  ? "📱 UPI QR"
+                                  : "💳 Card"}{" "}
+                                · {pStatus === "paid" ? "✅ Paid" : "⏳ Payment Pending"}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-1 text-sm font-semibold text-[#765f55]">
                             {order.restaurantId?.name || "Park Paradise"}
@@ -556,8 +671,72 @@ export default function OrdersPage() {
                             </span>
                           )}
                         </div>
+
+                        {/* Live Delivery Time Limit & Countdown Tracker */}
+                        {!["delivered", "cancelled"].includes(order.status) ? (
+                          <div className="mt-3.5 rounded-2xl border border-[#efd9bd] bg-white p-4 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <span
+                                  className={`grid h-8 w-8 place-items-center rounded-xl font-bold ${
+                                    timeStats.isOverdue
+                                      ? "bg-red-100 text-red-700 animate-pulse"
+                                      : "bg-[#fff1d5] text-[#d9472b]"
+                                  }`}
+                                >
+                                  <Clock3 className="h-4 w-4" />
+                                </span>
+                                <div>
+                                  <p
+                                    className={`text-xs font-black ${
+                                      timeStats.isOverdue ? "text-red-700" : "text-[#251611]"
+                                    }`}
+                                  >
+                                    {timeStats.label}
+                                  </p>
+                                  <p className="text-[11px] text-[#765f55]">
+                                    {timeStats.subtext}
+                                  </p>
+                                </div>
+                              </div>
+                              <span
+                                className={`rounded-xl px-2.5 py-1 text-[11px] font-black ${
+                                  timeStats.isOverdue
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {timeStats.isOverdue ? "⚡ Rush Delivery" : "⏱️ On Schedule"}
+                              </span>
+
+                            </div>
+
+                            {/* Live Countdown Visual Progress Bar */}
+                            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#efd9bd]">
+                              <div
+                                className={`h-full transition-all duration-1000 rounded-full ${
+                                  timeStats.isOverdue
+                                    ? "bg-red-500 animate-pulse"
+                                    : timeStats.tone === "amber"
+                                    ? "bg-amber-500"
+                                    : "bg-[#d9472b]"
+                                }`}
+                                style={{ width: `${timeStats.percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : order.status === "delivered" ? (
+                          <div className="mt-3.5 flex items-center justify-between rounded-2xl bg-green-50 p-3 border border-green-200 text-xs text-green-800 font-bold">
+                            <span className="flex items-center gap-2">
+                              <PackageCheck className="h-4 w-4 text-green-600" />
+                              <span>{timeStats.label}</span>
+                            </span>
+                            <span className="text-[11px] font-semibold text-green-700">{timeStats.subtext}</span>
+                          </div>
+                        ) : null}
                       </div>
                     )}
+
 
                     <button
                       onClick={() => setOpenId(isOpen ? null : order._id)}
@@ -607,8 +786,12 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="mt-4 flex items-center justify-between border-t border-[#efd9bd] pt-3 text-xs">
-                        <span className="font-bold text-[#765f55]">Total Paid Amount</span>
-                        <span className="text-base font-black text-[#251611]">{money(order.totalAmount)}</span>
+                        <span className="font-bold text-[#765f55]">
+                          {order.status === "cancelled" ? "Order Value (Cancelled · No Payment)" : "Total Amount"}
+                        </span>
+                        <span className={`text-base font-black ${order.status === "cancelled" ? "text-[#765f55] line-through" : "text-[#251611]"}`}>
+                          {money(order.totalAmount)}
+                        </span>
                       </div>
                     </div>
                   )}

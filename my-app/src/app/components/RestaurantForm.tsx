@@ -26,6 +26,7 @@ const emptyForm = {
   logoUrl: "",
   openingHours: "",
   isVeg: false,
+  defaultOrderTimeLimitMinutes: 35,
 };
 
 const getInitialForm = (restaurant?: any) => {
@@ -54,6 +55,7 @@ const getInitialForm = (restaurant?: any) => {
     logoUrl: restaurant.logoUrl || "",
     openingHours: restaurant.openingHours || "",
     isVeg: Boolean(restaurant.isVeg),
+    defaultOrderTimeLimitMinutes: Number(restaurant.defaultOrderTimeLimitMinutes) || 35,
   };
 };
 
@@ -200,6 +202,24 @@ export default function RestaurantForm({
             setForm((current) => ({ ...current, logoUrl: imageUrl }))
           }
         />
+        <div className="rounded-xl border border-[#efd9bd] bg-[#fff8ed] p-3.5">
+          <label className="block text-xs font-bold text-[#251611] mb-1">
+            ⏱️ Default Order Time Limit (Minutes)
+          </label>
+          <input
+            type="number"
+            name="defaultOrderTimeLimitMinutes"
+            min={5}
+            max={180}
+            placeholder="35"
+            value={form.defaultOrderTimeLimitMinutes}
+            onChange={handleChange}
+            className="zaika-input text-xs font-bold"
+          />
+          <p className="mt-1 text-[11px] text-[#765f55]">
+            Baseline preparation & delivery target time applied to all new incoming customer orders.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm font-semibold text-[#765f55]">
           <input
             type="checkbox"
