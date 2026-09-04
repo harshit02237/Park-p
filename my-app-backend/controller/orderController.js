@@ -15,6 +15,12 @@ const ORDER_STATUSES = [
 // Place an order as a customer
 const createOrder = async (req, res) => {
   try {
+    if (req.user && ["admin", "vendor"].includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Admin accounts cannot place customer orders. Please use a customer account.",
+      });
+    }
+
     const {
       restaurantId: requestedRestaurantId,
       items,

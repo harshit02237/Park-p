@@ -11,6 +11,7 @@ import {
   Clock3,
   CookingPot,
   MapPin,
+  PackageCheck,
   PartyPopper,
   Phone,
   Radio,

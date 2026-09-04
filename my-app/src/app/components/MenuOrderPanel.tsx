@@ -176,6 +176,11 @@ export default function MenuOrderPanel({
       return;
     }
 
+    if (user.role === "admin") {
+      setError("Admin accounts cannot place customer orders. Please use a customer account or manage orders in the Kitchen Dashboard.");
+      return;
+    }
+
     if (cartItems.length === 0) {
       setError("Add at least one dish to your cart.");
       return;
@@ -641,22 +646,38 @@ export default function MenuOrderPanel({
           <span className="font-black text-[#d9472b]">~35 mins express</span>
         </div>
 
-        <button
-          type="button"
-          onClick={placeOrder}
-          disabled={placingOrder || cartItems.length === 0}
-          className="zaika-button mt-4 w-full py-3.5 font-bold shadow-md flex items-center justify-center gap-2"
-        >
-
-          {placingOrder ? (
-            "Processing Order..."
-          ) : (
-            <>
-              <span>Place Order · {formatCurrency(total)}</span>
-              <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-        </button>
+        {user?.role === "admin" ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="text-xs font-black text-amber-900 flex items-center justify-center gap-1.5">
+              <span>🔒 Admin Account Active</span>
+            </p>
+            <p className="mt-1 text-[11px] text-amber-800 leading-relaxed font-semibold">
+              Customer ordering is disabled for admin accounts. Use a customer account to order, or manage your restaurant in the dashboard.
+            </p>
+            <Link
+              href="/admin"
+              className="zaika-button mt-3 inline-flex w-full items-center justify-center gap-1.5 py-2.5 text-xs font-bold"
+            >
+              Open Kitchen Dashboard <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={placeOrder}
+            disabled={placingOrder || cartItems.length === 0}
+            className="zaika-button mt-4 w-full py-3.5 font-bold shadow-md flex items-center justify-center gap-2"
+          >
+            {placingOrder ? (
+              "Processing Order..."
+            ) : (
+              <>
+                <span>Place Order · {formatCurrency(total)}</span>
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        )}
       </aside>
     </div>
   );
