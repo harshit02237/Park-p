@@ -143,57 +143,7 @@ router.post('/admin/login', async (req, res) => {
   }
 });
 
-// 4. Quick Demo Admin Access (for instant one-click admin access during testing)
-router.post('/admin/quick-login', async (req, res) => {
-  try {
-    const defaultEmail = 'admin@zaika.com';
-    let user = await User.findOne({ email: defaultEmail });
-
-    if (!user) {
-      user = new User({
-        name: 'Park Paradise Admin',
-        email: defaultEmail,
-        role: 'admin',
-      });
-      user.setPassword('admin123');
-      await user.save();
-    } else if (user.role !== 'admin') {
-      user.role = 'admin';
-      await user.save();
-    }
-
-    res.json(generateAuthResponse(user));
-  } catch (err) {
-    console.error('Quick admin login error:', err);
-    res.status(500).json({ message: err.message || 'Error generating admin access' });
-  }
-});
-
-// 4b. Quick Demo Customer Access (for instant one-click customer access during testing)
-router.post('/customer/quick-login', async (req, res) => {
-  try {
-    const defaultEmail = 'customer@parkparadise.com';
-    let user = await User.findOne({ email: defaultEmail });
-
-    if (!user) {
-      user = new User({
-        name: 'Demo Customer',
-        email: defaultEmail,
-        role: 'customer',
-      });
-      user.setPassword('password123');
-      await user.save();
-    }
-
-    res.json(generateAuthResponse(user));
-  } catch (err) {
-    console.error('Quick customer login error:', err);
-    res.status(500).json({ message: err.message || 'Error generating customer access' });
-  }
-});
-
-
-// 5. Google OAuth Initiator
+// 4. Google OAuth Initiator
 router.get('/google', (req, res, next) => {
   const { role } = req.query;
   const roleValue = role === 'admin' ? 'admin' : 'customer';

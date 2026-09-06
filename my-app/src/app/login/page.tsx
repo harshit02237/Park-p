@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import Link from "next/link";
-import { ArrowRight, Check, Heart, Lock, Mail, MapPin, ShieldCheck, ShoppingBag, Sparkles, User, UtensilsCrossed, Zap } from "lucide-react";
+import { ArrowRight, Check, Heart, Lock, Mail, MapPin, ShieldCheck, ShoppingBag, Sparkles, User, UtensilsCrossed } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuthContext } from "../lib/auth";
 
@@ -18,8 +18,8 @@ export default function LoginPage() {
   const [customerPassword, setCustomerPassword] = useState("");
 
   // Admin form state
-  const [adminEmail, setAdminEmail] = useState("admin@zaika.com");
-  const [adminPassword, setAdminPassword] = useState("admin123");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,12 +34,11 @@ export default function LoginPage() {
         setError(decodeURIComponent(err));
         window.history.replaceState(null, "", window.location.pathname);
       }
-      if (tab === "admin" || window.location.pathname.includes("/admin")) {
+      if (tab === "admin") {
         setActiveTab("admin");
       }
     }
   }, []);
-
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:5004";
   const customerGoogleUrl = `${apiBase}/api/auth/google?role=customer`;
@@ -69,33 +68,7 @@ export default function LoginPage() {
         loginWithToken(res.data.token, "/");
       }
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          (err?.message === "Network Error"
-            ? "Cannot reach backend server. Please verify backend is running."
-            : "Authentication failed. Please check your credentials.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleQuickDemoCustomer = async () => {
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-
-    try {
-      const res = await api.post("/auth/customer/quick-login");
-      setSuccess("Demo customer signed in! Redirecting...");
-      loginWithToken(res.data.token, "/");
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          (err?.message === "Network Error"
-            ? "Cannot reach backend server. Please verify backend is running."
-            : "Could not launch demo customer.")
-      );
+      setError(err?.response?.data?.message || "Authentication failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
@@ -115,38 +88,11 @@ export default function LoginPage() {
       setSuccess("Admin authenticated! Opening dashboard...");
       loginWithToken(res.data.token, "/admin");
     } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          (err?.message === "Network Error"
-            ? "Cannot reach backend server. Please verify backend is running."
-            : "Admin authentication failed.")
-      );
+      setError(err?.response?.data?.message || "Admin authentication failed.");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleQuickDemoAdmin = async () => {
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-
-    try {
-      const res = await api.post("/auth/admin/quick-login");
-      setSuccess("Demo Admin Access Granted! Opening dashboard...");
-      loginWithToken(res.data.token, "/admin");
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message ||
-          (err?.message === "Network Error"
-            ? "Cannot reach backend server. Please verify backend is running."
-            : "Could not launch demo admin.")
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
 
 
   return (
@@ -161,7 +107,7 @@ export default function LoginPage() {
           <div className="absolute -bottom-20 -left-16 h-64 w-64 rounded-full bg-[#d9472b]/25 blur-2xl" />
           <div className="relative flex h-full flex-col">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#d9472b] text-xl font-black shadow-lg">
-              P
+              Z
             </div>
 
             
@@ -272,7 +218,7 @@ export default function LoginPage() {
                 <p className="mt-1 text-sm text-[#765f55]">
                   {customerMode === "login"
                     ? "Sign in to place orders, save favourites, and track delivery."
-                    : "Sign up in seconds to start ordering from Park Paradise."}
+                    : "Sign up in seconds to start ordering from Zaika."}
                 </p>
 
 
@@ -282,15 +228,14 @@ export default function LoginPage() {
                     <div>
                       <label className="mb-1 block text-xs font-bold text-[#765f55]">Your Name</label>
                       <div className="relative">
-                        <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
+                        <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
                         <input
                           type="text"
                           required
                           placeholder="e.g. Harshit"
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
-                          className="zaika-input"
-                          style={{ paddingLeft: "2.85rem" }}
+                          className="zaika-input pl-9"
                         />
                       </div>
                     </div>
@@ -299,15 +244,14 @@ export default function LoginPage() {
                   <div>
                     <label className="mb-1 block text-xs font-bold text-[#765f55]">Email Address</label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
                       <input
                         type="email"
                         required
                         placeholder="you@example.com"
                         value={customerEmail}
                         onChange={(e) => setCustomerEmail(e.target.value)}
-                        className="zaika-input"
-                        style={{ paddingLeft: "2.85rem" }}
+                        className="zaika-input pl-9"
                       />
                     </div>
                   </div>
@@ -315,15 +259,14 @@ export default function LoginPage() {
                   <div>
                     <label className="mb-1 block text-xs font-bold text-[#765f55]">Password</label>
                     <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
                       <input
                         type="password"
                         required
                         placeholder="••••••••"
                         value={customerPassword}
                         onChange={(e) => setCustomerPassword(e.target.value)}
-                        className="zaika-input"
-                        style={{ paddingLeft: "2.85rem" }}
+                        className="zaika-input pl-9"
                       />
                     </div>
                   </div>
@@ -340,19 +283,6 @@ export default function LoginPage() {
                       : "Create Account"}
                   </button>
                 </form>
-
-                {/* Instant Demo Customer Button */}
-                <div className="mt-3.5">
-                  <button
-                    type="button"
-                    onClick={handleQuickDemoCustomer}
-                    disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#d9472b] bg-[#fff8ed] py-2.5 text-xs font-bold text-[#d9472b] transition hover:bg-[#fff1d5]"
-                  >
-                    <Zap className="h-3.5 w-3.5 fill-current" />
-                    Instant Demo Customer Access (1-Click)
-                  </button>
-                </div>
 
                 {/* Google OAuth Option */}
                 <div className="relative my-4 text-center">
@@ -397,14 +327,14 @@ export default function LoginPage() {
                   <div>
                     <label className="mb-1 block text-xs font-bold text-[#765f55]">Admin Email</label>
                     <div className="relative">
-                      <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
+                      <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
                       <input
                         type="email"
                         required
+                        placeholder="admin@example.com"
                         value={adminEmail}
                         onChange={(e) => setAdminEmail(e.target.value)}
-                        className="zaika-input"
-                        style={{ paddingLeft: "2.85rem" }}
+                        className="zaika-input pl-9"
                       />
                     </div>
                   </div>
@@ -412,14 +342,14 @@ export default function LoginPage() {
                   <div>
                     <label className="mb-1 block text-xs font-bold text-[#765f55]">Admin Password</label>
                     <div className="relative">
-                      <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
+                      <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#765f55]" />
                       <input
                         type="password"
                         required
+                        placeholder="••••••••"
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
-                        className="zaika-input"
-                        style={{ paddingLeft: "2.85rem" }}
+                        className="zaika-input pl-9"
                       />
                     </div>
                   </div>
@@ -429,24 +359,10 @@ export default function LoginPage() {
                     disabled={loading}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#251611] py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-[#3a221b] disabled:opacity-50"
                   >
-
                     <ShieldCheck className="h-4 w-4 text-[#f8cd72]" />
                     {loading ? "Verifying..." : "Sign In to Admin Dashboard"}
                   </button>
                 </form>
-
-                {/* Instant Demo Admin Button */}
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    onClick={handleQuickDemoAdmin}
-                    disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#f4a51c] bg-[#fff8ed] py-2.5 text-xs font-black text-[#d9472b] transition hover:bg-[#fff1d5]"
-                  >
-                    <Zap className="h-3.5 w-3.5 fill-current" />
-                    Instant Demo Admin Access (1-Click)
-                  </button>
-                </div>
 
                 {/* Google Admin Login */}
                 <div className="relative my-4 text-center">
