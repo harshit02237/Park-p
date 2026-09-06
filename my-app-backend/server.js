@@ -101,15 +101,51 @@ app.use("/favourites", favouriteRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/uploads", uploadRoutes);
 
+// 🌐 Root & Health Check Endpoints
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    message: "🚀 Zaika Online Backend API is active and running successfully!",
+    version: "1.0.0",
+    docs: {
+      healthCheck: "/api/test",
+      auth: "/api/auth",
+      restaurants: "/api/restaurants",
+      dishes: "/api/dishes",
+      orders: "/api/orders",
+      admin: "/api/admin",
+      favourites: "/api/favourites",
+      uploads: "/api/uploads",
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/api", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    message: "🚀 Zaika Online API root",
+    healthCheck: "/api/test",
+  });
+});
+
 // 🧪 Test Route
 app.get("/api/test", (req, res) => {
-  res.json({ message: "✅ Server working fine!" });
+  res.json({ message: "✅ Server working fine!", timestamp: new Date().toISOString() });
 });
 
 // 🧩 Error Handling (Optional but good practice)
 app.use((err, req, res, next) => {
   console.error("❌ Server Error:", err.stack);
   res.status(500).json({ error: "Internal Server Error" });
+});
+
+// 🛑 404 Catch-all handler for undefined routes
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Not Found",
+    message: `Cannot ${req.method} ${req.originalUrl}. Please verify the endpoint URL.`,
+  });
 });
 
 const http = require("http");
