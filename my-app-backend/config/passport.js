@@ -20,7 +20,10 @@ passport.deserializeUser(async (id, done) => {
 
 const clientID = (process.env.GOOGLE_CLIENT_ID || '').replace(/^["']|["']$/g, '').trim();
 const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').replace(/^["']|["']$/g, '').trim();
-const callbackURL = (process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback').replace(/^["']|["']$/g, '').trim();
+const callbackURL = (
+  process.env.GOOGLE_CALLBACK_URL ||
+  (process.env.BACKEND_URL ? `${process.env.BACKEND_URL.replace(/\/$/, '')}/api/auth/google/callback` : '/api/auth/google/callback')
+).replace(/^["']|["']$/g, '').trim();
 
 passport.use(
   new GoogleStrategy(
@@ -28,6 +31,7 @@ passport.use(
       clientID,
       clientSecret,
       callbackURL,
+      proxy: true,
       passReqToCallback: true,
     },
 
