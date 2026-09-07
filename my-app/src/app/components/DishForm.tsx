@@ -137,23 +137,54 @@ export default function DishForm({ restaurantId }: Props) {
           required
         />
 
-        <input
-          type="text"
-          name="category"
-          placeholder="Category (e.g., Starter, Main Course)"
-          value={form.category}
-          onChange={handleChange}
-          className="zaika-input"
-        />
+        <div className="md:col-span-2 space-y-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-[#765f55]">
+            Food Category
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "Fast Food", icon: "🍔" },
+              { label: "Meals", icon: "🍛" },
+              { label: "Desserts", icon: "🍰" },
+              { label: "Beverages", icon: "🥤" },
+            ].map((cat) => (
+              <button
+                key={cat.label}
+                type="button"
+                onClick={() => setForm((prev) => ({ ...prev, category: cat.label }))}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+                  form.category?.toLowerCase() === cat.label.toLowerCase()
+                    ? "bg-[#d9472b] text-white shadow-md"
+                    : "border border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff1d5]"
+                }`}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            name="category"
+            placeholder="Or type custom category..."
+            value={form.category}
+            onChange={handleChange}
+            className="zaika-input mt-1.5"
+          />
+        </div>
 
-        <label className="flex items-center space-x-2 text-sm font-semibold text-[#765f55]">
+        <label className="flex items-center space-x-2 text-sm font-semibold text-[#765f55] md:col-span-2">
           <input
             type="checkbox"
             name="isVeg"
             checked={form.isVeg}
             onChange={handleChange}
+            className="h-4 w-4 rounded accent-green-600"
           />
-          <span>Vegetarian</span>
+          <span className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${form.isVeg ? "bg-green-600" : "bg-red-600"}`} />
+            <span>{form.isVeg ? "Vegetarian Dish (Veg)" : "Non-Vegetarian Dish (Non-Veg)"}</span>
+          </span>
         </label>
 
         <input
@@ -214,14 +245,23 @@ export default function DishForm({ restaurantId }: Props) {
                 )}
                 <div>
                   <h4 className="font-bold text-[#251611]">{d.name}</h4>
-                  <p className="text-sm text-[#765f55]">{d.description}</p>
                   <p className="text-sm font-bold text-[#d9472b]">₹{d.price}</p>
-                  <p className="text-sm text-[#765f55]">{d.category}</p>
-                  {d.isVeg ? (
-                    <span className="text-sm font-semibold text-green-700">Veg</span>
-                  ) : (
-                    <span className="text-sm font-semibold text-red-700">Non-Veg</span>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {d.category && (
+                      <span className="rounded-md bg-[#fff1d5] px-2 py-0.5 text-xs font-bold text-[#765f55]">
+                        {d.category}
+                      </span>
+                    )}
+                    {d.isVeg ? (
+                      <span className="rounded-md bg-green-50 px-2 py-0.5 text-xs font-bold text-green-700">
+                        Veg
+                      </span>
+                    ) : (
+                      <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">
+                        Non-Veg
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 

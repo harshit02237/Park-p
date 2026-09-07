@@ -84,7 +84,7 @@ router.post('/customer/login', async (req, res) => {
   }
 });
 
-// 3. Admin Login (Email + Password)
+// 3. Admin Login & Registration (strictly restricted to ADMIN_EMAILS)
 router.post('/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -93,17 +93,22 @@ router.post('/admin/login', async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    let user = await User.findOne({ email: normalizedEmail });
-
-    // Auto-provision initial default admin if database is new
     const adminEmails = (process.env.ADMIN_EMAILS || 'admin@zaika.com,dubeyharshit105@gmail.com')
       .split(',')
       .map((e) => e.trim().toLowerCase())
       .filter(Boolean);
 
-    const isAdminConfigured = adminEmails.includes(normalizedEmail) || normalizedEmail.includes('admin');
+    // 🔒 STRICT CHECK: Only pre-registered emails in .env ADMIN_EMAILS are allowed
+    if (!adminEmails.includes(normalizedEmail)) {
+      return res.status(403).json({
+        message: 'Access denied: Only emails registered in ADMIN_EMAILS are allowed to access the admin portal.',
+      });
+    }
 
-    if (!user && isAdminConfigured) {
+    let user = await User.findOne({ email: normalizedEmail });
+
+    // If authorized admin email doesn't exist in DB yet, auto-provision their admin account
+    if (!user) {
       user = new User({
         name: 'Restaurant Admin',
         email: normalizedEmail,
@@ -114,20 +119,13 @@ router.post('/admin/login', async (req, res) => {
       return res.json(generateAuthResponse(user));
     }
 
-    if (!user) {
-      return res.status(401).json({ message: 'Admin account not found' });
-    }
-
-    // Verify admin role
-    if (user.role !== 'admin' && !adminEmails.includes(normalizedEmail)) {
-      return res.status(403).json({ message: 'Access denied: not an administrator account' });
-    }
-
+    // Ensure role is admin
     if (user.role !== 'admin') {
       user.role = 'admin';
       await user.save();
     }
 
+    // Verify password if set, or initialize password if first time setting password
     if (user.password && !user.validatePassword(password)) {
       return res.status(401).json({ message: 'Invalid admin credentials' });
     } else if (!user.password) {
@@ -140,6 +138,50 @@ router.post('/admin/login', async (req, res) => {
   } catch (err) {
     console.error('Admin login error:', err);
     res.status(500).json({ message: err.message || 'Server error during admin login' });
+  }
+});
+
+router.post('/admin/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Admin email and password are required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const adminEmails = (process.env.ADMIN_EMAILS || 'admin@zaika.com,dubeyharshit105@gmail.com')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    // 🔒 STRICT CHECK: Only pre-registered emails in .env ADMIN_EMAILS are allowed
+    if (!adminEmails.includes(normalizedEmail)) {
+      return res.status(403).json({
+        message: 'Access denied: Only emails registered in ADMIN_EMAILS are allowed to register as admin.',
+      });
+    }
+
+    let user = await User.findOne({ email: normalizedEmail });
+    if (user) {
+      user.role = 'admin';
+      user.name = (name && name.trim()) || user.name || 'Restaurant Admin';
+      user.setPassword(password);
+      await user.save();
+    } else {
+      user = new User({
+        name: (name && name.trim()) || 'Restaurant Admin',
+        email: normalizedEmail,
+        role: 'admin',
+      });
+      user.setPassword(password);
+      await user.save();
+    }
+
+    const authData = generateAuthResponse(user);
+    res.status(201).json(authData);
+  } catch (err) {
+    console.error('Admin register error:', err);
+    res.status(500).json({ message: err.message || 'Server error during admin registration' });
   }
 });
 
@@ -212,14 +254,33 @@ router.get(
 
       if (err || !user) {
         console.error('Google OAuth Authentication Error:', err || info);
-        const errorMsg = encodeURIComponent(
-          err?.message || (typeof info === 'string' ? info : 'Google authentication failed. Please try again.')
-        );
-        return res.redirect(`${targetOrigin}/login?error=${errorMsg}`);
+        const rawMsg =
+          err?.message ||
+          (typeof info === 'object' && info?.message
+            ? info.message
+            : typeof info === 'string'
+            ? info
+            : 'Google authentication failed. Please try again.');
+        const errorMsg = encodeURIComponent(rawMsg);
+        const tabParam = selectedRole === 'admin' ? '&tab=admin' : '';
+        return res.redirect(`${targetOrigin}/login?error=${errorMsg}${tabParam}`);
       }
 
       try {
-        const role = user.role === 'admin' ? 'admin' : selectedRole;
+        const adminEmails = (process.env.ADMIN_EMAILS || 'admin@zaika.com,dubeyharshit105@gmail.com')
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
+
+        const isAdmin = user.role === 'admin' || (user.email && adminEmails.includes(user.email.toLowerCase()));
+
+        // If the user attempted to sign in via Admin portal but is NOT an authorized admin:
+        if (selectedRole === 'admin' && !isAdmin) {
+          const errorMsg = encodeURIComponent('Access Denied: This Google account does not have administrator privileges.');
+          return res.redirect(`${targetOrigin}/login?tab=admin&error=${errorMsg}`);
+        }
+
+        const role = isAdmin ? 'admin' : 'customer';
 
         const token = jwt.sign(
           {

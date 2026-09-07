@@ -137,6 +137,71 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Explore Food Categories Section */}
+      <section className="mx-auto max-w-7xl px-4 pb-14">
+        <div className="mb-6 flex items-end justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.18em] text-[#d9472b]">Delicious Choices</p>
+            <h2 className="mt-1 text-2xl font-black text-[#251611] md:text-3xl">Explore by Category</h2>
+          </div>
+          <Link href="/menu" className="text-xs font-bold text-[#d9472b] hover:underline flex items-center gap-1">
+            View All Dishes <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {[
+            {
+              name: "Fast Food",
+              icon: "🍔",
+              desc: "Burgers, Pizzas & Quick Bites",
+              color: "bg-amber-50 border-amber-200 text-amber-900",
+              slug: "Fast Food",
+            },
+            {
+              name: "Meals",
+              icon: "🍛",
+              desc: "Thalis, Biryani, Curries & Rice",
+              color: "bg-orange-50 border-orange-200 text-orange-900",
+              slug: "Meals",
+            },
+            {
+              name: "Desserts",
+              icon: "🍰",
+              desc: "Sweets, Pastries & Ice Creams",
+              color: "bg-pink-50 border-pink-200 text-pink-900",
+              slug: "Desserts",
+            },
+            {
+              name: "Beverages",
+              icon: "🥤",
+              desc: "Cold Shakes, Juices & Mocktails",
+              color: "bg-blue-50 border-blue-200 text-blue-900",
+              slug: "Beverages",
+            },
+          ].map((cat) => (
+            <Link
+              key={cat.name}
+              href={`/menu?category=${encodeURIComponent(cat.slug)}`}
+              className={`group flex flex-col justify-between rounded-2xl border p-4 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-md ${cat.color}`}
+            >
+              <div>
+                <span className="text-3xl sm:text-4xl">{cat.icon}</span>
+                <h3 className="mt-3 font-black text-[#251611] group-hover:text-[#d9472b] transition">
+                  {cat.name}
+                </h3>
+                <p className="mt-1 text-xs text-[#765f55] leading-relaxed line-clamp-2">
+                  {cat.desc}
+                </p>
+              </div>
+              <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-[#d9472b]">
+                Browse items <ArrowRight className="h-3 w-3 transition group-hover:translate-x-1" />
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Featured Dishes */}
       <section className="mx-auto max-w-7xl px-4 pb-16">
         <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

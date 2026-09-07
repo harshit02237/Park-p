@@ -66,13 +66,45 @@ export default function MenuOrderPanel({
   const [placedOrder, setPlacedOrder] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Category helper
+  const getCategoryIcon = (category: string) => {
+    const lower = category.toLowerCase();
+    if (lower === "all") return "🍽️";
+    if (lower.includes("fast") || lower.includes("burger") || lower.includes("pizza") || lower.includes("snack") || lower.includes("roll")) return "🍔";
+    if (lower.includes("meal") || lower.includes("main") || lower.includes("thali") || lower.includes("biryani") || lower.includes("curry") || lower.includes("rice")) return "🍛";
+    if (lower.includes("desert") || lower.includes("dessert") || lower.includes("sweet") || lower.includes("cake") || lower.includes("ice")) return "🍰";
+    if (lower.includes("beverage") || lower.includes("drink") || lower.includes("shake") || lower.includes("coffee") || lower.includes("tea") || lower.includes("juice") || lower.includes("lassi")) return "🥤";
+    return "🍴";
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const catParam = params.get("category");
+      if (catParam) {
+        setSelectedCategory(catParam);
+      }
+    }
+  }, []);
+
   const categories = useMemo(() => {
-    const cats = new Set<string>();
+    const baseCategories = ["Fast Food", "Meals", "Desserts", "Beverages"];
+    const foundCategories = new Set<string>();
+
     dishes.forEach((d) => {
-      if (d.category) cats.add(d.category);
+      if (d.category && d.category.trim()) {
+        foundCategories.add(d.category.trim());
+      }
     });
-    return ["all", ...Array.from(cats)];
+
+    const allUnique = Array.from(new Set([...baseCategories, ...Array.from(foundCategories)]));
+    return ["all", ...allUnique];
   }, [dishes]);
+
+  const getCategoryCount = (cat: string) => {
+    if (cat === "all") return dishes.length;
+    return dishes.filter((d) => d.category?.toLowerCase() === cat.toLowerCase()).length;
+  };
 
   const filteredDishes = useMemo(() => {
     return dishes.filter((dish) => {
@@ -305,34 +337,51 @@ export default function MenuOrderPanel({
       {/* Menu Column */}
       <div>
         {/* Category and Veg Filters */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => setSelectedCategory(category)}
-                className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition ${
-                  selectedCategory === category
-                    ? "bg-[#d9472b] text-white shadow-md"
-                    : "border border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff1d5]"
-                }`}
-              >
-                {category === "all" ? "All Dishes" : category}
-              </button>
-            ))}
-          </div>
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => {
+                const isSelected = selectedCategory.toLowerCase() === category.toLowerCase();
+                const count = getCategoryCount(category);
 
-          <label className="flex items-center gap-2 rounded-xl border border-[#efd9bd] bg-[#fffdf8] px-3.5 py-2 text-xs font-bold text-[#765f55] cursor-pointer">
-            <span className="h-3 w-3 rounded-full bg-green-600 inline-block" />
-            <span>Veg Only</span>
-            <input
-              type="checkbox"
-              checked={vegFilter}
-              onChange={(e) => setVegFilter(e.target.checked)}
-              className="h-4 w-4 accent-green-600"
-            />
-          </label>
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setSelectedCategory(category)}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold capitalize transition ${
+                      isSelected
+                        ? "bg-[#d9472b] text-white shadow-md scale-[1.02]"
+                        : "border border-[#efd9bd] bg-[#fffdf8] text-[#765f55] hover:bg-[#fff1d5]"
+                    }`}
+                  >
+                    <span className="text-sm">{getCategoryIcon(category)}</span>
+                    <span>{category === "all" ? "All Dishes" : category}</span>
+                    {count > 0 && (
+                      <span
+                        className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                          isSelected ? "bg-white/20 text-white" : "bg-[#fff1d5] text-[#d9472b]"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <label className="flex items-center gap-2 rounded-xl border border-[#efd9bd] bg-[#fffdf8] px-4 py-2.5 text-xs font-bold text-[#765f55] cursor-pointer shadow-sm hover:bg-[#fff1d5]">
+              <span className="h-3 w-3 rounded-full bg-green-600 inline-block" />
+              <span>Veg Only</span>
+              <input
+                type="checkbox"
+                checked={vegFilter}
+                onChange={(e) => setVegFilter(e.target.checked)}
+                className="h-4 w-4 accent-green-600 cursor-pointer"
+              />
+            </label>
+          </div>
         </div>
 
         {/* Dishes Grid */}
@@ -370,8 +419,9 @@ export default function MenuOrderPanel({
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         {dish.category && (
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-[#d9472b]">
-                            {dish.category}
+                          <p className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[#d9472b]">
+                            <span>{getCategoryIcon(dish.category)}</span>
+                            <span>{dish.category}</span>
                           </p>
                         )}
                         <h3 className="text-lg font-black text-[#251611]">{dish.name}</h3>

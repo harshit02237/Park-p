@@ -29,7 +29,7 @@ const protect = async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    req.user.role = decoded.role || req.user.role;
+    req.user.role = req.user.role || decoded.role || "customer";
     next();
   } catch (err) {
     console.error("Auth middleware error:", err.message);
@@ -39,7 +39,14 @@ const protect = async (req, res, next) => {
 
 // Vendor/Admin role check middleware
 const isVendor = (req, res, next) => {
-  if (req.user && ["vendor", "admin"].includes(req.user.role)) {
+  const adminEmails = (process.env.ADMIN_EMAILS || 'dubeyharshit105@gmail.com,admin@zaika.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const isEmailAdmin = req.user?.email && adminEmails.includes(req.user.email.toLowerCase());
+
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'vendor') && isEmailAdmin) {
     next();
   } else {
     res.status(403).json({ message: "Access denied: Vendor/Admin only" });
@@ -48,7 +55,7 @@ const isVendor = (req, res, next) => {
 
 // Customer/Admin role check middleware
 const isCustomer = (req, res, next) => {
-  if (req.user && ["customer", "admin", "vendor"].includes(req.user.role)) {
+  if (req.user) {
     next();
   } else {
     res.status(403).json({ message: "Access denied: Customer only" });
@@ -57,10 +64,17 @@ const isCustomer = (req, res, next) => {
 
 // Admin role check
 const isAdmin = (req, res, next) => {
-  if (req.user && ["admin", "vendor"].includes(req.user.role)) {
+  const adminEmails = (process.env.ADMIN_EMAILS || 'dubeyharshit105@gmail.com,admin@zaika.com')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const isEmailAdmin = req.user?.email && adminEmails.includes(req.user.email.toLowerCase());
+
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'vendor') && isEmailAdmin) {
     next();
   } else {
-    res.status(403).json({ message: "Access denied: Admin only" });
+    res.status(403).json({ message: "Access denied: Only pre-registered administrator emails in ADMIN_EMAILS can perform this action." });
   }
 };
 
