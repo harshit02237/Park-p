@@ -145,14 +145,32 @@ router.post('/admin/login', async (req, res) => {
 
 // 4. Google OAuth Initiator
 router.get('/google', (req, res, next) => {
-  const { role } = req.query;
+  const { role, origin, frontend_origin, redirect_url } = req.query;
   const roleValue = role === 'admin' ? 'admin' : 'customer';
-  
-  if (req.session) {
-    req.session.googleAuthRole = roleValue;
+
+  let detectedOrigin = origin || frontend_origin || redirect_url;
+  if (!detectedOrigin && req.headers.referer) {
+    try {
+      detectedOrigin = new URL(req.headers.referer).origin;
+    } catch (e) {}
+  }
+  if (!detectedOrigin) {
+    detectedOrigin = process.env.FRONTEND_URL || process.env.PROD_URL || process.env.CLIENT_URL || 'http://localhost:3000';
   }
 
-  const statePayload = Buffer.from(JSON.stringify({ role: roleValue })).toString('base64');
+  detectedOrigin = String(detectedOrigin).replace(/\/$/, '');
+
+  if (req.session) {
+    req.session.googleAuthRole = roleValue;
+    req.session.frontendOrigin = detectedOrigin;
+  }
+
+  const statePayload = Buffer.from(
+    JSON.stringify({
+      role: roleValue,
+      origin: detectedOrigin,
+    })
+  ).toString('base64');
 
   passport.authenticate('google', {
     scope: ['profile', 'email'],
@@ -161,33 +179,46 @@ router.get('/google', (req, res, next) => {
   })(req, res, next);
 });
 
-// 6. Google OAuth Callback
+// 5. Google OAuth Callback
 router.get(
   '/google/callback',
   (req, res, next) => {
     passport.authenticate('google', { session: false }, (err, user, info) => {
-      const PROD_URL = process.env.PROD_URL || 'http://localhost:3000';
+      let targetOrigin =
+        process.env.FRONTEND_URL ||
+        process.env.PROD_URL ||
+        process.env.CLIENT_URL ||
+        'http://localhost:3000';
+
+      let selectedRole = 'customer';
+
+      if (req.query && req.query.state) {
+        try {
+          const parsed = JSON.parse(Buffer.from(req.query.state, 'base64').toString('ascii'));
+          if (parsed && parsed.role) {
+            selectedRole = parsed.role;
+          }
+          if (parsed && parsed.origin) {
+            targetOrigin = parsed.origin;
+          }
+        } catch (e) {}
+      }
+
+      if (user && (user.selectedRole || user.role)) {
+        selectedRole = user.selectedRole || user.role;
+      }
+
+      targetOrigin = String(targetOrigin).replace(/\/$/, '');
 
       if (err || !user) {
         console.error('Google OAuth Authentication Error:', err || info);
         const errorMsg = encodeURIComponent(
           err?.message || (typeof info === 'string' ? info : 'Google authentication failed. Please try again.')
         );
-        return res.redirect(`${PROD_URL}/login?error=${errorMsg}`);
+        return res.redirect(`${targetOrigin}/login?error=${errorMsg}`);
       }
 
       try {
-        let selectedRole = user.selectedRole || user.role || 'customer';
-
-        if (req.query && req.query.state) {
-          try {
-            const parsed = JSON.parse(Buffer.from(req.query.state, 'base64').toString('ascii'));
-            if (parsed && parsed.role) {
-              selectedRole = parsed.role;
-            }
-          } catch (e) {}
-        }
-
         const role = user.role === 'admin' ? 'admin' : selectedRole;
 
         const token = jwt.sign(
@@ -203,13 +234,13 @@ router.get(
         );
 
         if (role === 'admin') {
-          return res.redirect(`${PROD_URL}/admin?token=${token}`);
+          return res.redirect(`${targetOrigin}/admin?token=${token}`);
         } else {
-          return res.redirect(`${PROD_URL}/?token=${token}`);
+          return res.redirect(`${targetOrigin}/?token=${token}`);
         }
       } catch (tokenErr) {
         console.error('Google OAuth token creation error:', tokenErr);
-        return res.redirect(`${PROD_URL}/login?error=token_failed`);
+        return res.redirect(`${targetOrigin}/login?error=token_failed`);
       }
     })(req, res, next);
   }

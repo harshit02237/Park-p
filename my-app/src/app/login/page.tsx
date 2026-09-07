@@ -25,8 +25,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const [frontendOrigin, setFrontendOrigin] = useState("");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
+      setFrontendOrigin(window.location.origin);
       const params = new URLSearchParams(window.location.search);
       const err = params.get("error");
       const tab = params.get("tab");
@@ -41,8 +44,9 @@ export default function LoginPage() {
   }, []);
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") || "http://localhost:5004";
-  const customerGoogleUrl = `${apiBase}/api/auth/google?role=customer`;
-  const adminGoogleUrl = `${apiBase}/api/auth/google?role=admin`;
+  const originParam = frontendOrigin ? `&origin=${encodeURIComponent(frontendOrigin)}` : "";
+  const customerGoogleUrl = `${apiBase}/api/auth/google?role=customer${originParam}`;
+  const adminGoogleUrl = `${apiBase}/api/auth/google?role=admin${originParam}`;
 
   const handleCustomerAuth = async (e: React.FormEvent) => {
     e.preventDefault();
